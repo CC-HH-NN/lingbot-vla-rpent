@@ -1,0 +1,9 @@
+# Public, lightweight dependencies. Full CUDA/RoboTwin/LingBot stacks are deployment-specific.
+numpy>=1.26
+openai>=1.0
+websockets>=12
+Pillow>=10
+PyYAML>=6
+packaging>=24
+einops>=0.8
+pytest>=8

@@ -1,0 +1,48 @@
+--- a/robots/robotwin/primitives.py
++++ b/robots/robotwin/primitives.py
+@@ -232,16 +232,21 @@
+         ] = 50,
+         prompt: str | None = None,
+     ) -> ToolResult:
+-        """Run LingBot-VLA qpos14 actions using the native task instruction. The optional prompt is recorded but never sent to the policy."""
++        """使用显式子目标生成qpos14动作；省略prompt时沿用原任务指令。"""
+         if int(chunks) < 1:
+             raise ValueError("chunks must be at least 1")
+         if int(use_length) != MODEL_SPEC.use_length:
+             raise ValueError(
+                 f"RoboTwin LingBot requires use_length={MODEL_SPEC.use_length}"
+             )
++        if prompt is not None:
++            if not isinstance(prompt, str) or not prompt.strip():
++                raise ValueError("prompt must be a non-empty string when provided")
++            prompt = prompt.strip()
+         executed = 0
+         requested = int(chunks) * MODEL_SPEC.use_length
+         native_prompt = None
++        policy_prompt = None
+         for _ in range(int(chunks)):
+             self._check_cancelled()
+             status = self.env.last_info["episode_status"]
+@@ -253,6 +258,9 @@
+                 break
+             observation = self._build_lingbot_observation()
+             native_prompt = observation["task_language"]
++            # 只替换本次推理输入，保留环境任务和成功判定口径。
++            policy_prompt = native_prompt if prompt is None else prompt
++            observation["task_language"] = policy_prompt
+             actions = self.model.infer(observation)[: MODEL_SPEC.use_length]
+             self._check_cancelled()
+             payload, _, _, _, info = self.env.chunk_step(
+@@ -277,9 +285,9 @@
+                     requested=requested, executed=executed, status=status
+                 ),
+                 "success": True,
+-                "prompt": native_prompt,
+-                "agent_prompt_ignored": prompt is not None,
+-                "ignored_agent_prompt": prompt,
++                "prompt": policy_prompt,
++                "native_task_prompt": native_prompt,
++                "agent_prompt_used": prompt is not None and policy_prompt is not None,
+                 "episode_status": status,
+             }
+         )

@@ -1,0 +1,121 @@
+# Public scope
+
+The staging repository contains only the following categories:
+
+- reusable Python source and tests
+- minimal patches
+- sanitized experiment summaries
+- example configuration without credentials
+
+It intentionally excludes runtime snapshots, environments, weights, datasets, logs, internal paths and API configuration.
+
+## Files
+
+- `.gitignore`
+- `ARCHITECTURE.md`
+- `README.md`
+- `SECURITY.md`
+- `docs/experiment-protocol.md`
+- `docs/results-summary.md`
+- `examples/inference.example.json`
+- `jobs/agent_batch_worker.py`
+- `jobs/agent_noapi_baseline.py`
+- `jobs/analyze_rtc_trajectories.py`
+- `jobs/check_openai_planner.py`
+- `jobs/checkpoint_service_recovery.json`
+- `jobs/enable_lingbot_autohorizon.py`
+- `jobs/evaluation_evidence.py`
+- `jobs/freeze_agent_memory.py`
+- `jobs/official_case_env.py`
+- `jobs/prepare_lingbot_autohorizon_probe.py`
+- `jobs/rtc_case_runner.py`
+- `jobs/rtc_comparison_plan.py`
+- `jobs/rtc_robotwin_episode.py`
+- `jobs/run_active_planner.py`
+- `jobs/run_agent_batch.py`
+- `jobs/run_feedback_planner.py`
+- `jobs/run_visual_agent_episode.py`
+- `jobs/summarize_rtc_comparison.py`
+- `jobs/vla_inference_dev.json`
+- `patches/robotwin-render-config.patch`
+- `patches/rpent-subgoal-prompt.patch`
+- `patches/rpent-threadpool-close.patch`
+- `patches/rpent-v2-qpos14.patch`
+- `requirements-public.txt`
+- `src/agent_batch_gates.py`
+- `src/agent_batch_ledger.py`
+- `src/agent_loop.py`
+- `src/agent_rpent_bridge.py`
+- `src/agent_runtime_contract.py`
+- `src/autohorizon.py`
+- `src/b29000_vla_client.py`
+- `src/checkpoint_shared_rpc.py`
+- `src/chunk_executor.py`
+- `src/experience_memory.py`
+- `src/feedback_analysis.py`
+- `src/frozen_agent_memory.py`
+- `src/openai_planner.py`
+- `src/planner_control.py`
+- `src/qpos14_contract.py`
+- `src/rpent_qpos14_adapter.py`
+- `src/rtc_core.py`
+- `src/rtc_lingbot.py`
+- `src/rtc_queue.py`
+- `src/rtc_rpc.py`
+- `src/shared_vla_server.py`
+- `src/v2_qpos14_server.py`
+- `src/visual_agent_control.py`
+- `src/visual_planner.py`
+- `tests/fixtures/checkpoint_service_stub.py`
+- `tests/integration/test_rpent_integration.py`
+- `tests/integration/test_subgoal_delivery.py`
+- `tests/test_agent_batch.py`
+- `tests/test_agent_comparison_prepare.py`
+- `tests/test_autohorizon.py`
+- `tests/test_c_route_contract.py`
+- `tests/test_c_route_temporary.py`
+- `tests/test_check_gpu_health.py`
+- `tests/test_checkpoint_evaluation.py`
+- `tests/test_checkpoint_parallel.py`
+- `tests/test_checkpoint_screen_audit.py`
+- `tests/test_checkpoint_screen_only.py`
+- `tests/test_checkpoint_screen_pool.py`
+- `tests/test_checkpoint_service.py`
+- `tests/test_checkpoint_service_main.py`
+- `tests/test_checkpoint_shared_rpc.py`
+- `tests/test_chunk_executor.py`
+- `tests/test_dev_worker_config.py`
+- `tests/test_evaluation_evidence.py`
+- `tests/test_frozen_agent_memory.py`
+- `tests/test_full_agent.py`
+- `tests/test_gpu_sharing.py`
+- `tests/test_official_b29000.py`
+- `tests/test_openai_planner.py`
+- `tests/test_paired_scenes.py`
+- `tests/test_persistent_worker.py`
+- `tests/test_planner_control.py`
+- `tests/test_planner_retry.py`
+- `tests/test_qpos14_contract.py`
+- `tests/test_rtc.py`
+- `tests/test_rtc_action_mask.py`
+- `tests/test_rtc_case_runner.py`
+- `tests/test_rtc_comparison_plan.py`
+- `tests/test_rtc_comparison_summary.py`
+- `tests/test_rtc_deployment.py`
+- `tests/test_rtc_episode_events.py`
+- `tests/test_rtc_expert_screen.py`
+- `tests/test_rtc_gpu_evidence.py`
+- `tests/test_rtc_probe.py`
+- `tests/test_rtc_process_guard.py`
+- `tests/test_rtc_screen_cache.py`
+- `tests/test_rtc_trajectory_analysis.py`
+- `tests/test_rtc_transport.py`
+- `tests/test_scheduled_stop.py`
+- `tests/test_screening_resume.py`
+- `tests/test_self_checkpoint_prepare.py`
+- `tests/test_shared_vla.py`
+- `tests/test_thu_evaluation_submit.py`
+- `tests/test_thu_scene_recovery.py`
+- `tests/test_thu_scene_reset.py`
+- `tests/test_visual_agent.py`
+- `tests/test_visual_episode_integration.py`

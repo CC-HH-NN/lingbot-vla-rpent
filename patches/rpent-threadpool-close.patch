@@ -1,0 +1,11 @@
+--- a/robots/robotwin/env_server.py
++++ b/robots/robotwin/env_server.py
+@@ -154,6 +154,8 @@
+         return dict(self._metadata)
+
+     def close(self):
++        """先结束环境工作线程，再释放其使用的原生场景资源。"""
++        self._env.venv.env_thread_pool.shutdown(wait=True, cancel_futures=True)
+         _teardown_env(self._env)
+
+     def reset(self) -> tuple[dict[str, Any], dict[str, Any]]:

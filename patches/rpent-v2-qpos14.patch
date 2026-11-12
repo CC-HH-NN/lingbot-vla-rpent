@@ -1,0 +1,153 @@
+--- a/robots/robotwin/vla_client.py
++++ b/robots/robotwin/vla_client.py
+@@ -92,25 +92,17 @@
+             raise RuntimeError(
+                 "LingBot VLA metadata mismatch: "
+                 f"expected={expected_meta!r} actual={actual_meta!r}. "
+-                "Connect to the RoboTwin EEF16 LingBot server."
++                "Connect to the V2 qpos14 LingBot server."
+             )
+
+     def infer(self, observation: dict[str, Any]) -> np.ndarray:
+-        """Infer one eef16 action chunk."""
++        """使用三路RGB和qpos14状态生成关节动作块。"""
+         views = observation["views"]
+         state = observation["robot_state"]
+-        left_pose = np.asarray(state["left_eef_pose"], dtype=np.float32)
+-        right_pose = np.asarray(state["right_eef_pose"], dtype=np.float32)
+-        if left_pose.shape != (7,) or right_pose.shape != (7,):
+-            raise RuntimeError("RoboTwin end-effector poses must have shape (7,)")
+-        policy_state = np.concatenate(
+-            [
+-                left_pose,
+-                np.asarray([state["left_gripper"]], dtype=np.float32),
+-                right_pose,
+-                np.asarray([state["right_gripper"]], dtype=np.float32),
+-            ]
+-        )
++        # V2 checkpoint 使用双臂关节目标和夹爪组成的14维状态。
++        policy_state = np.asarray(state["qpos_target14"], dtype=np.float32)
++        if policy_state.shape != (14,) or not np.isfinite(policy_state).all():
++            raise ValueError("qpos_target14 must be finite with shape (14,)")
+         payload = {
+             "observation.images.cam_high": views["head"]["rgb"],
+             "observation.images.cam_left_wrist": views["left_wrist"]["rgb"],
+@@ -119,8 +111,10 @@
+             "task": observation["task_language"],
+         }
+         actions = np.asarray(super().predict(payload)["action"], dtype=np.float64)
+-        if actions.ndim != 2 or actions.shape[1] != 16:
++        if actions.ndim != 2 or actions.shape[1] != 14:
+             raise RuntimeError(
+-                f"LingBot returned {actions.shape}; expected [chunk, 16]"
++                f"LingBot returned {actions.shape}; expected [chunk, 14]"
+             )
++        if actions.shape[0] == 0 or not np.isfinite(actions).all():
++            raise RuntimeError("LingBot returned empty or non-finite actions")
+         return actions
+--- a/robots/robotwin/primitives.py
++++ b/robots/robotwin/primitives.py
+@@ -232,7 +232,7 @@
+         ] = 50,
+         prompt: str | None = None,
+     ) -> ToolResult:
+-        """Run LingBot-VLA eef16 actions using the native task instruction. The optional prompt is recorded but never sent to the policy."""
++        """Run LingBot-VLA qpos14 actions using the native task instruction. The optional prompt is recorded but never sent to the policy."""
+         if int(chunks) < 1:
+             raise ValueError("chunks must be at least 1")
+         if int(use_length) != MODEL_SPEC.use_length:
+@@ -257,7 +257,7 @@
+             self._check_cancelled()
+             payload, _, _, _, info = self.env.chunk_step(
+                 actions,
+-                action_type="ee",
++                action_type="qpos",
+                 return_all_frames=self._recording
+                 and self.env.execution_capabilities.get("chunk_step_all_frames")
+                 is True,
+--- a/robots/robotwin/robot_spec.py
++++ b/robots/robotwin/robot_spec.py
+@@ -78,7 +78,7 @@
+
+ @dataclass(frozen=True)
+ class RoboTwinModelSpec:
+-    """Values required by the LingBot EEF runtime."""
++    """现有LingBot V2 qpos14服务需要的运行契约。"""
+
+     policy_name: str
+     robot_config_relpath: str
+@@ -91,13 +91,13 @@
+
+
+ MODEL_SPEC = RoboTwinModelSpec(
+-    policy_name="robotwin_eef",
+-    robot_config_relpath="configs/robot_configs/robotwin_eef.yaml",
+-    norm_stats="norm_stats/robotwin_eef.json",
++    policy_name="robotwin_qpos14",
++    robot_config_relpath="configs/robot_configs/robotwin.yaml",
++    norm_stats="assets/norm_stats/robotwin_clean50.json",
+     qwen_base="qwen_base",
+     camera_order=("cam_high", "cam_left_wrist", "cam_right_wrist"),
+-    state_layout="eef16",
+-    action_layout="eef16",
++    state_layout="qpos14",
++    action_layout="qpos14",
+     use_length=50,
+ )
+
+@@ -299,7 +299,7 @@
+         default=os.environ.get("LINGBOT_ROBOT_CONFIG"),
+         help=(
+             "Path to the LingBot FeatureTransform robot config. Defaults to "
+-            "the model snapshot's configs/robot_configs/robotwin_eef.yaml."
++            "the model snapshot's configs/robot_configs/robotwin.yaml."
+         ),
+     )
+     parser.add_argument("--cuda-device", default=None)
+@@ -644,42 +644,10 @@
+     if args.vla_endpoint is not None:
+         return None, _parse_vla_endpoint(args.vla_endpoint)
+
+-    _, vla_cuda_device = _resolve_cuda_devices(args)
+-    model_path = _resolve_vla_runtime_path(args)
+-    assert model_path is not None
+-    robot_config = _resolve_lingbot_robot_config(args, model_path)
+-    host, vla_port = "127.0.0.1", pick_free_port()
+-    norm_path = model_path / MODEL_SPEC.norm_stats
+-    qwen_path = model_path / MODEL_SPEC.qwen_base
+-    daemon = ProcessDaemon(
+-        "lingbot_vla_server",
+-        [
+-            sys.executable,
+-            str(get_repo_root() / "robots" / "robotwin" / "vla_server.py"),
+-            "--model-path",
+-            str(model_path),
+-            "--use-length",
+-            str(MODEL_SPEC.use_length),
+-            "--port",
+-            str(vla_port),
+-            "--norm-path",
+-            str(norm_path),
+-            "--lingbot-robot-config",
+-            str(robot_config),
+-            "--parent-watch",
+-        ],
+-        env_overrides={
+-            "QWEN25_PATH": str(qwen_path),
+-            **(
+-                {"CUDA_VISIBLE_DEVICES": vla_cuda_device}
+-                if vla_cuda_device is not None
+-                else {}
+-            ),
+-        },
+-        log_path=str(output_dir / "lingbot_vla_server.log"),
+-    )
+-    daemon.start()
+-    return daemon, (host, vla_port)
++    raise ValueError(
++        "qpos14 requires --vla-endpoint pointing to the chr-2 V2 server; "
++        "start v2_qpos14_server.py before RPent"
++    )
+
+
+ def _build_env_runtime_kwargs(
