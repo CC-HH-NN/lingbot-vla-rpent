@@ -13,8 +13,10 @@ It intentionally excludes runtime snapshots, environments, weights, datasets, lo
 
 - `.gitignore`
 - `ARCHITECTURE.md`
+- `PUBLIC_SCOPE.md`
 - `README.md`
 - `SECURITY.md`
+- `THIRD_PARTY_NOTICES.md`
 - `docs/experiment-protocol.md`
 - `docs/results-summary.md`
 - `examples/inference.example.json`
