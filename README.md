@@ -99,6 +99,11 @@ M4 是本组候选中表现最好的 checkpoint。独立服务器上的 B29000 �
 - 任务级成功率的分母始终保留；未完成回合不会被从统计中删除。
 - 不同服务器或不同环境的结果只有在协议、初态和 seed 同源时才适合做严格因果比较。
 
+## 展示结构参考
+
+README 的结果优先布局参考了公开的 LingBot 项目页面与比赛仓库：
+[`hongyiD/lingbot-vla-robotwin`](https://github.com/hongyiD/lingbot-vla-robotwin)、[`tlysanhuo/lingbot-vla-challenge`](https://github.com/tlysanhuo/lingbot-vla-challenge)、[`4588025/lingbot-vla-project-page`](https://github.com/4588025/lingbot-vla-project-page) 和 [`Arborsen/LingBot`](https://github.com/Arborsen/LingBot)。本仓库只借鉴信息组织方式，代码、结果和结论均来自本项目自己的记录。
+
 ## 第三方与许可
 
 LingBot-VLA、RoboTwin、RPent 以及相关依赖保留各自版权和许可证。本项目只发布个人实现、最小补丁、脱敏结果和第三方声明；详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 与 [`PUBLIC_SCOPE.md`](PUBLIC_SCOPE.md)。
