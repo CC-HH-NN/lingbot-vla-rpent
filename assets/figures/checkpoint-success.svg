@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" role="img" aria-labelledby="title desc">
+<title id="title">Checkpoint success rate</title>
+<desc id="desc">Sanitized project evaluation visualization.</desc>
+<style>text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#253046} .grid{stroke:#d8dee9;stroke-width:1} .axis{stroke:#73809a;stroke-width:1.2} .muted{fill:#68758a;font-size:12px} .label{font-size:13px} .title{font-size:18px;font-weight:700} </style>
+<rect width="900" height="470" fill="#ffffff"/>
+<text x="48" y="34" class="title">Checkpoint success rate</text>
+<text x="48" y="56" class="muted">250 episodes per checkpoint · 125 clean + 125 randomized</text>
+<line x1="72" y1="382.0" x2="832" y2="382.0" class="grid"/>
+<text x="60" y="386.0" text-anchor="end" class="muted">0%</text>
+<line x1="72" y1="322.0" x2="832" y2="322.0" class="grid"/>
+<text x="60" y="326.0" text-anchor="end" class="muted">20%</text>
+<line x1="72" y1="262.0" x2="832" y2="262.0" class="grid"/>
+<text x="60" y="266.0" text-anchor="end" class="muted">40%</text>
+<line x1="72" y1="202.0" x2="832" y2="202.0" class="grid"/>
+<text x="60" y="206.0" text-anchor="end" class="muted">60%</text>
+<line x1="72" y1="142.0" x2="832" y2="142.0" class="grid"/>
+<text x="60" y="146.0" text-anchor="end" class="muted">80%</text>
+<line x1="72" y1="82.0" x2="832" y2="82.0" class="grid"/>
+<text x="60" y="86.0" text-anchor="end" class="muted">100%</text>
+<line x1="72" y1="82" x2="72" y2="382" class="axis"/>
+<line x1="72" y1="382" x2="832" y2="382" class="axis"/>
+<rect x="110.0" y="154.0" width="34" height="228.0" rx="4" fill="#2563eb"/>
+<text x="127.0" y="147.0" text-anchor="middle" class="muted">76</text>
+<rect x="152.0" y="278.8" width="34" height="103.2" rx="4" fill="#f97316"/>
+<text x="169.0" y="271.8" text-anchor="middle" class="muted">34</text>
+<text x="148.0" y="406" text-anchor="middle" class="label">M0</text>
+<rect x="262.0" y="146.8" width="34" height="235.2" rx="4" fill="#2563eb"/>
+<text x="279.0" y="139.8" text-anchor="middle" class="muted">78</text>
+<rect x="304.0" y="266.8" width="34" height="115.2" rx="4" fill="#f97316"/>
+<text x="321.0" y="259.8" text-anchor="middle" class="muted">38</text>
+<text x="300.0" y="406" text-anchor="middle" class="label">M1</text>
+<rect x="414.0" y="156.4" width="34" height="225.6" rx="4" fill="#2563eb"/>
+<text x="431.0" y="149.4" text-anchor="middle" class="muted">75</text>
+<rect x="456.0" y="274.0" width="34" height="108.0" rx="4" fill="#f97316"/>
+<text x="473.0" y="267.0" text-anchor="middle" class="muted">36</text>
+<text x="452.0" y="406" text-anchor="middle" class="label">M2</text>
+<rect x="566.0" y="137.2" width="34" height="244.8" rx="4" fill="#2563eb"/>
+<text x="583.0" y="130.2" text-anchor="middle" class="muted">82</text>
+<rect x="608.0" y="274.0" width="34" height="108.0" rx="4" fill="#f97316"/>
+<text x="625.0" y="267.0" text-anchor="middle" class="muted">36</text>
+<text x="604.0" y="406" text-anchor="middle" class="label">M3</text>
+<rect x="718.0" y="125.2" width="34" height="256.8" rx="4" fill="#2563eb"/>
+<text x="735.0" y="118.2" text-anchor="middle" class="muted">86</text>
+<rect x="760.0" y="262.0" width="34" height="120.0" rx="4" fill="#f97316"/>
+<text x="777.0" y="255.0" text-anchor="middle" class="muted">40</text>
+<text x="756.0" y="406" text-anchor="middle" class="label">M4</text>
+<rect x="650" y="40" width="14" height="14" rx="3" fill="#2563eb"/><text x="670" y="52" class="muted">clean</text>
+<rect x="720" y="40" width="14" height="14" rx="3" fill="#f97316"/><text x="740" y="52" class="muted">randomized</text>
+<text x="48" y="430" class="muted">Best tested checkpoint: M4 (62.8% overall; 85.6% clean, 40.0% randomized).</text>
+</svg>

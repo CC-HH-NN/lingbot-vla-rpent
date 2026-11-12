@@ -1,0 +1,7 @@
+strategy,success,valid,success_rate,clean_success,randomized_success,requests,median_model_forward_s,delta_vs_fixed50_pp
+Fixed 50,159,250,0.6360,107,52,1725,0.7050,0.00
+Fixed 30,149,250,0.5960,103,46,3024,0.6947,-4.00
+Fixed 20,167,250,0.6680,110,57,4073,0.4850,3.20
+AutoHorizon,155,250,0.6200,106,49,3483,0.5550,-1.60
+Async 25,163,250,0.6520,110,53,3336,0.6948,1.60
+RTC 25,150,250,0.6000,105,45,3561,1.8017,-3.60

@@ -1,6 +1,7 @@
 """部署准备验证：真实固定RoboTwin源码的只读钩子及环境边界，不启动GPU。"""
 
 import ast
+import os
 from pathlib import Path
 import sys
 import unittest
@@ -8,16 +9,25 @@ from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'jobs'))
-from rtc_5090_prepare import instrument_robotwin
-from rtc_5090_worker import child_environment, render_device_for, run
+try:
+    from rtc_5090_prepare import instrument_robotwin
+    from rtc_5090_worker import child_environment, render_device_for, run
+    _DEPLOYMENT_IMPORT_ERROR = None
+except ModuleNotFoundError as exc:  # private deployment helpers are intentionally omitted
+    instrument_robotwin = child_environment = render_device_for = run = None
+    _DEPLOYMENT_IMPORT_ERROR = exc
 
 
+@unittest.skipIf(_DEPLOYMENT_IMPORT_ERROR is not None, 'private deployment helpers are not included in the showcase copy')
 class DeploymentTests(unittest.TestCase):
     """用实际源码验证适配锚点和保留的原生执行语句。"""
 
     def test_physics_hook_on_pinned_source(self):
         """主执行器和成功条件必须逐字保留，只增加只读诊断入口。"""
-        source=(ROOT/'runtime/status-1750548-1750453/disk-audit-20261030/src/RoboTwin/envs/_base_task.py').read_text(encoding='utf-8')
+        source_path = os.environ.get('ROBOTWIN_SOURCE')
+        if not source_path:
+            self.skipTest('set ROBOTWIN_SOURCE to a pinned local RoboTwin source for deployment-only checks')
+        source=Path(source_path).read_text(encoding='utf-8')
         updated=instrument_robotwin(source)
         ast.parse(updated)
         for statement in ('self.scene.step()','self.check_success()','self.take_action_cnt += 1','self.eval_success = True'):

@@ -1,0 +1,11 @@
+checkpoint,setting,success,valid,success_rate
+M0,demo_clean,95,125,0.7600
+M0,demo_randomized,43,125,0.3440
+M1,demo_clean,98,125,0.7840
+M1,demo_randomized,48,125,0.3840
+M2,demo_clean,94,125,0.7520
+M2,demo_randomized,45,125,0.3600
+M3,demo_clean,102,125,0.8160
+M3,demo_randomized,45,125,0.3600
+M4,demo_clean,107,125,0.8560
+M4,demo_randomized,50,125,0.4000

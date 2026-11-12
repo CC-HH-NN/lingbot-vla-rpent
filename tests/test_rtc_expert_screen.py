@@ -2,6 +2,7 @@
 
 import ast
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -19,7 +20,10 @@ class ExpertScreenTests(unittest.TestCase):
 
     def failing_environment(self):
         """只隔离Action/机器人，执行实际grasp_actor的None分支。"""
-        source = ROOT / 'runtime/status-1750548-1750453/disk-audit-20261030/src/RoboTwin/envs/_base_task.py'
+        source_path = os.environ.get('ROBOTWIN_SOURCE')
+        if not source_path:
+            self.skipTest('set ROBOTWIN_SOURCE to a pinned local RoboTwin source for expert-only checks')
+        source = Path(source_path)
         tree = ast.parse(source.read_text(encoding='utf-8'))
         method = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == 'grasp_actor')
         for node in ast.walk(method):
