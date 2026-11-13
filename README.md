@@ -1,21 +1,22 @@
-# LingBot-VLA：后训练、推理优化与分层具身 Agent
+# LingBot-VLA：从后训练到具身 Agent
 
-> 一个面向双臂操作的 VLA 项目：我从后训练 checkpoint 出发，系统比较动作执行策略，再把 RPent 风格的规划、工具调用、VLA 执行和经验记忆接成闭环，并用统一的仿真评测验证每一步带来的变化。
+这个项目从一个很具体的问题开始：**一个在熟悉场景里能完成动作的 VLA，到了随机化场景和更长的任务里，为什么会失败？应该先改训练、推理，还是加高层 Agent？**
 
-本仓库用于**展示项目做了什么、如何验证、结果说明什么**。它不是一份从零复现实验的安装教程：模型权重、数据、仿真资产、集群环境和 API 凭据均未公开。
+我把这三个层次放在同一套 RoboTwin 评测里比较：先看后训练能不能改善泛化，再看动作块长度如何影响反馈和推理成本，最后看规划、工具和经验记忆能不能帮助低层策略完成长程任务。
 
-## 项目亮点
+这个仓库是项目展示材料，不是从零复现的安装手册。模型权重、数据、仿真资产、集群环境和 API 凭据没有放进来。
 
-- **后训练**：建立 SFT、增强训练、ActionEMA 以及 A/B/C 路线 checkpoint 的对照，保留每个回合的任务、场景、seed 和失败类型。
-- **推理侧优化**：在同一个 B29000 checkpoint 上比较固定 50/30/20 步、AutoHorizon、异步 25 步和 RTC 25 步，记录成功率、请求次数和单次模型前向时间。
-- **分层 Agent**：将高层任务规划、结构化工具调用、VLA 动作块、反馈分析和冻结经验记忆连接起来；对规划失败、接口错误和正常任务失败分别记账。
-- **评测工程**：固定 25 个任务、clean/randomized 两种 setting 和公共场景，支持断点续跑、逐回合账本和任务级分析，避免只展示成功案例。
+## 先看三个结论
 
-## 结果先看
+**后训练有效，但随机化场景仍然是主要瓶颈。** 在同一批 250 个回合上，M4 是当前候选中最好的 checkpoint：clean 85.6%，randomized 40.0%，整体 62.8%。
 
-### 后训练 checkpoint
+**更短的动作块带来更及时的反馈，也带来更多请求。** 固定 20 步得到 66.8%，高于固定 50 步的 63.6%，但模型请求次数从 1,725 增加到 4,073。它是控制反馈和推理成本之间的折中，不是单纯的加速。
 
-下图展示了 5 个自训 checkpoint 在 250 个回合上的成功率。每个 checkpoint 都包含 125 个 clean 和 125 个 randomized 回合。
+**Agent 能组织任务，但不能替代低层控制能力。** 官方 RPent 方案成功完成了 162/250 个回合（64.8%）。它说明规划、工具调用、VLA 执行和反馈可以接通；现有实验条件还不足以把这个数字解释成严格的 Agent 净增益。
+
+## 1. 后训练：模型到底泛化到了哪里
+
+我没有只看训练 loss，而是把 clean 和 randomized 分开统计。每个 checkpoint 都跑 125 个 clean 和 125 个 randomized 回合：
 
 ![Checkpoint success rate](assets/figures/checkpoint-success.svg)
 
@@ -27,9 +28,11 @@
 | M3 | 81.6% | 36.0% | 58.8% |
 | **M4** | **85.6%** | **40.0%** | **62.8%** |
 
-M4 是本组候选中表现最好的 checkpoint。独立服务器上的 B29000 复核为 159/250（63.6%）；C 路线 student 和 dynamic-EMA teacher 均为 151/250（60.4%）。这些结果支持 checkpoint 选择结论，但不能把多项训练改动的共同收益归因给某一个单独技巧。
+M4 作为后续实验的候选权重。另一次 THU 复核得到 B29000 159/250（63.6%）；由于运行环境和协议版本不同，这两个数字分别保留，不能拼成一个更高的成绩。C 路线的 student 和 dynamic-EMA teacher 都是 151/250（60.4%）。这组结果能说明 checkpoint 选择，不能说明某一个训练技巧单独带来了全部提升。
 
-### 推理策略
+## 2. 推理：动作块应该执行多长
+
+一次预测 50 步动作，并不意味着必须连续执行完 50 步。执行得短一些，可以更早看到环境变化；执行得长一些，可以减少模型调用和等待。我在同一个 B29000 checkpoint 上比较了六种策略：
 
 ![Inference strategy comparison](assets/figures/inference-strategies.svg)
 
@@ -42,68 +45,72 @@ M4 是本组候选中表现最好的 checkpoint。独立服务器上的 B29000 �
 | Async 25 | 65.2% | 110/125 | 53/125 | 3,336 | +1.6 pp |
 | RTC 25 | 60.0% | 105/125 | 45/125 | 3,561 | -3.6 pp |
 
-固定 20 步在本组协议下成功率最高，但请求次数约为固定 50 步的 2.36 倍，因此这里体现的是反馈频率和执行开销之间的折中，不能直接写成“纯推理加速”。
+这个实验没有得到“自适应策略一定更好”的结论。它更直接地说明：在当前模型和仿真协议下，反馈频率本身就会影响结果；如果要把固定 20 步用于更大规模评测，还要同时考虑请求成本和整体吞吐。
 
-### Agent 闭环
+## 3. Agent：什么时候值得加一层规划
 
-官方 RPent 方案在 250 个回合中完成 162 次（64.8%），其中 clean 为 107/125，randomized 为 55/125。它证明了规划—工具—VLA—反馈链路可以稳定运行，并提供了细粒度执行证据。
+低层 VLA 负责把当前观察变成动作，高层 Agent 负责决定下一步做什么、是否调用工具、是否根据反馈重新规划。它解决的是任务组织问题，不是重新训练一个低层控制器。
 
-旧自定义 Agent 的纯 VLA、无记忆和冻结记忆结果分别为 63.6%、57.2% 和 60.4%。官方 Agent 与旧纯 VLA 的初态、环境版本和 seed 处理并非完全同源，因此这些数字用于说明工程结果和诊断方向，不能作为严格的因果增益声明。
+官方 RPent 评测结果是 162/250：
 
-## 训练与任务级证据
+- clean：107/125
+- randomized：55/125
+
+这组实验重点验证了规划器、工具、VLA、仿真器和反馈之间的接口是否能连续工作。旧自定义 Agent 的纯 VLA、无记忆和冻结记忆结果分别为 63.6%、57.2% 和 60.4%。但官方 Agent 与旧纯 VLA 的初态、环境版本和 seed 处理并非完全同源，所以这里不把 64.8% 写成严格的因果提升。
+
+这也是我对 Agent 的判断：如果 VLA 不会抓取或动作已经发生漂移，Agent 不能凭空补出低层能力；它更适合处理长程任务的阶段组织、工具选择和失败恢复。
+
+## 4. 训练曲线和任务级结果
+
+训练 loss 主要用来检查训练是否正常，最终模型选择仍然看留出任务成功率：
 
 ![B29000 training loss](assets/figures/training-loss-b29000.svg)
 
-训练 loss 下降说明优化过程收敛，但最终判断仍以留出任务成功率为准。任务级热力图用于发现“总体平均值掩盖的回归”：
+总体平均值还不够。下面的热力图用来查看某个 checkpoint 是否只改善了少数任务，或者是否在某类任务上退化：
 
 ![Per-task checkpoint heatmap](assets/figures/per-task-checkpoint-heatmap.svg)
 
-公开数据表可直接查看具体分母和失败情况：
+对应的公开数据表：
 
-- [`results/checkpoint_summary.csv`](results/checkpoint_summary.csv)：每个 checkpoint 的 clean/randomized 汇总。
-- [`results/per_task_checkpoint.csv`](results/per_task_checkpoint.csv)：25 个任务 × 5 个 checkpoint 的任务级结果。
+- [`results/checkpoint_summary.csv`](results/checkpoint_summary.csv)：checkpoint 的 clean/randomized 汇总。
+- [`results/per_task_checkpoint.csv`](results/per_task_checkpoint.csv)：25 个任务 × 5 个 checkpoint 的结果。
 - [`results/inference_comparison.csv`](results/inference_comparison.csv)：推理策略、请求次数和模型前向时间。
-- [`results/training_b29000.csv`](results/training_b29000.csv)：脱敏后的 B29000 训练曲线采样。
+- [`results/training_b29000.csv`](results/training_b29000.csv)：B29000 训练曲线采样。
 
-## 我实际完成的工作
+## 评测为什么可信
 
-1. **统一评测协议**：固定任务集合、公共场景、checkpoint、seed、精度、去噪步数、动作块长度和成功判据；把环境初始化失败、专家规划失败、接口异常和模型正常失败分开记录。
-2. **完成后训练对比**：从训练日志、checkpoint 和逐回合账本建立“训练变化 → 仿真表现”的证据链，并保留 clean 与 randomized 两种难度。
-3. **实现推理策略接口**：把固定动作块、AutoHorizon、异步执行和 RTC 放在同一 VLA 客户端边界下比较，避免策略差异混入模型权重切换。
-4. **实现分层 Agent**：接入结构化规划、动作原语、VLA qpos14 适配、反馈分析、冻结经验和断点账本，并为 API 重试、端口隔离和续跑设计了可审计状态。
-5. **分析失败案例**：从逐回合日志定位预算耗尽、随机化初态、动作漂移、工具调用错误和环境故障，避免把所有失败笼统归为“模型能力不足”。
+评测固定了任务集合、公共场景、checkpoint、seed、精度、去噪步数、动作块长度和成功判据。每个回合都有自己的身份和结果记录。
 
-## 系统如何协作
+环境初始化失败、专家规划失败、接口错误和模型正常失败分开记录。只有事先定义的客观环境故障才允许按规则顺延 seed；正常失败不会被删除，也不会从分母里消失。不同服务器或不同环境的结果，如果初态和 seed 不是同源，就只做工程参考，不做严格因果比较。
+
+## 系统结构
 
 ```text
 任务目标 + RGB/状态
         │
         ▼
-规划器 / 冻结经验 ──► 动作原语与恢复决策
-        │                         │
-        └────────► LingBot-VLA ───┘
-                              │
-                              ▼
-                   动作块执行 / AutoHorizon / RTC
-                              │
-                              ▼
-                 仿真状态、成功判据、细粒度账本
+规划器 / 经验记忆 ──► 动作工具与恢复决策
+        │                       │
+        └──────► LingBot-VLA ───┘
+                         │
+                         ▼
+                动作块执行 / AutoHorizon / RTC
+                         │
+                         ▼
+              RoboTwin 状态、成功判据、结果账本
 ```
 
-代码职责和调用关系见 [`ARCHITECTURE.md`](ARCHITECTURE.md)；实验协议和结果边界见 [`docs/experiment-protocol.md`](docs/experiment-protocol.md) 与 [`docs/results-summary.md`](docs/results-summary.md)。
+模块职责见 [`ARCHITECTURE.md`](ARCHITECTURE.md)，实验口径见 [`docs/experiment-protocol.md`](docs/experiment-protocol.md)，结果说明见 [`docs/results-summary.md`](docs/results-summary.md)。
 
-## 结果边界
+## 仓库里有什么
 
-- 结果来自内部固定协议，不是官方排行榜成绩。
-- 公开仓库提供摘要和证据表，不提供权重、数据、视频、仿真资产、集群路径或 API 密钥。
-- 任务级成功率的分母始终保留；未完成回合不会被从统计中删除。
-- 不同服务器或不同环境的结果只有在协议、初态和 seed 同源时才适合做严格因果比较。
+- `src/`：VLA 客户端、动作块执行、推理策略、Agent 和结果记录。
+- `patches/`：与上游实现之间的最小差异。
+- `tests/`：接口、动作执行、结果账本和推理策略测试。
+- `results/`、`assets/figures/`：用于查看项目结果的脱敏表格和图表。
 
-## 展示结构参考
-
-README 的结果优先布局参考了公开的 LingBot 项目页面与比赛仓库：
-[`hongyiD/lingbot-vla-robotwin`](https://github.com/hongyiD/lingbot-vla-robotwin)、[`tlysanhuo/lingbot-vla-challenge`](https://github.com/tlysanhuo/lingbot-vla-challenge)、[`4588025/lingbot-vla-project-page`](https://github.com/4588025/lingbot-vla-project-page) 和 [`Arborsen/LingBot`](https://github.com/Arborsen/LingBot)。本仓库只借鉴信息组织方式，代码、结果和结论均来自本项目自己的记录。
+仓库不包含权重、数据、视频、仿真资产、集群路径、运行日志或 API 密钥。
 
 ## 第三方与许可
 
-LingBot-VLA、RoboTwin、RPent 以及相关依赖保留各自版权和许可证。本项目只发布个人实现、最小补丁、脱敏结果和第三方声明；详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 与 [`PUBLIC_SCOPE.md`](PUBLIC_SCOPE.md)。
+LingBot-VLA、RoboTwin、RPent 及相关依赖保留各自版权和许可证。本项目只发布个人实现、最小补丁、脱敏结果和第三方声明；详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 与 [`PUBLIC_SCOPE.md`](PUBLIC_SCOPE.md)。
