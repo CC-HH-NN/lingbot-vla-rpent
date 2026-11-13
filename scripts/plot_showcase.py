@@ -31,7 +31,15 @@ INK = "#1F2937"
 MUTED = "#5B6675"
 GRID = "#D8DEE8"
 PHASE_COLORS = {"SFT": BLUE, "Enhanced": ORANGE, "ActionEMA": PURPLE, "B": GREEN}
-CHECKPOINT_NAMES = {"M0": "SFT 16k", "M1": "Enhanced 23k", "M2": "ActionEMA 26k", "M3": "A 29k", "M4": "B 29k"}
+CHECKPOINT_NAMES = {
+    "M0": "SFT 16k",
+    "M1": "Enhanced 23k",
+    "M2": "ActionEMA 26k",
+    "M4": "B 29k",
+    "C_student": "C student 29k",
+    "C_teacher": "C teacher 29k",
+    "Agent": "Official Agent",
+}
 
 
 def read_csv(name: str) -> list[dict[str, str]]:
@@ -75,7 +83,7 @@ def save(fig: plt.Figure, stem: str) -> None:
 
 def checkpoint_figure() -> None:
     rows = read_csv("checkpoint_summary.csv")
-    checkpoints = ["M0", "M1", "M2", "M3", "M4"]
+    checkpoints = ["M0", "M1", "M2", "M4", "C_student", "C_teacher"]
     settings = ["demo_clean", "demo_randomized"]
     values = {(r["checkpoint"], r["setting"]): float(r["success_rate"]) * 100 for r in rows}
     fig, ax = plt.subplots(figsize=(9.4, 4.9), layout="constrained")
@@ -189,13 +197,13 @@ def training_figure() -> None:
 def heatmap_figure() -> None:
     rows = read_csv("per_task_checkpoint.csv")
     tasks = sorted({r["task"] for r in rows})
-    checkpoints = ["M0", "M1", "M2", "M3", "M4"]
+    checkpoints = ["M0", "M1", "M2", "M4", "Agent"]
     values = {(r["task"], r["checkpoint"]): float(r["success_rate"]) for r in rows}
     matrix = [[values[(task, ck)] for ck in checkpoints] for task in tasks]
     fig_height = max(7.0, len(tasks) * 0.34)
     fig, ax = plt.subplots(figsize=(9.8, fig_height), layout="constrained")
     image = ax.imshow(matrix, cmap="Blues", norm=Normalize(0, 1), aspect="auto")
-    ax.set_title("Per-task success rate across checkpoints")
+    ax.set_title("Per-task success rate across retained checkpoints and the official Agent")
     ax.set_xlabel("Checkpoint")
     ax.set_ylabel("Task")
     ax.set_xticks(range(len(checkpoints)), [CHECKPOINT_NAMES[c] for c in checkpoints], rotation=15, ha="right")

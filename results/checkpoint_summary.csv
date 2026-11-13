@@ -5,7 +5,9 @@ M1,demo_clean,98,125,0.7840
 M1,demo_randomized,48,125,0.3840
 M2,demo_clean,94,125,0.7520
 M2,demo_randomized,45,125,0.3600
-M3,demo_clean,102,125,0.8160
-M3,demo_randomized,45,125,0.3600
 M4,demo_clean,107,125,0.8560
 M4,demo_randomized,50,125,0.4000
+C_student,demo_clean,102,125,0.8160
+C_student,demo_randomized,49,125,0.3920
+C_teacher,demo_clean,106,125,0.8480
+C_teacher,demo_randomized,45,125,0.3600
