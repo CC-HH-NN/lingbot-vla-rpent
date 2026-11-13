@@ -5,7 +5,7 @@
 ## 展示层
 
 - `README.md`：项目定位、个人贡献、核心结果、图表和结论边界。
-- `assets/figures/`：不依赖额外绘图库的 SVG 图，分别展示训练曲线、checkpoint 对比、推理策略折中和任务级热力图。
+- `assets/figures/`：展示训练曲线、checkpoint 对比、推理策略折中、系统架构和任务级热力图的 SVG/PNG 图。
 - `results/`：脱敏后的汇总表，保留成功率分母、任务维度、请求次数和训练曲线采样。
 - `docs/experiment-protocol.md`、`docs/results-summary.md`：评测协议、证据来源和可解释范围。
 

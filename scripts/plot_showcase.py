@@ -203,7 +203,7 @@ def heatmap_figure() -> None:
     fig_height = max(7.0, len(tasks) * 0.34)
     fig, ax = plt.subplots(figsize=(9.8, fig_height), layout="constrained")
     image = ax.imshow(matrix, cmap="Blues", norm=Normalize(0, 1), aspect="auto")
-    ax.set_title("Per-task success rate across retained checkpoints and the official Agent")
+    ax.set_title("Per-task success rate across checkpoints and the official Agent")
     ax.set_xlabel("Checkpoint")
     ax.set_ylabel("Task")
     ax.set_xticks(range(len(checkpoints)), [CHECKPOINT_NAMES[c] for c in checkpoints], rotation=15, ha="right")
