@@ -186,11 +186,6 @@ def training_figure() -> None:
     for boundary in (16000, 23000, 26000):
         for ax in axes:
             ax.axvline(boundary, color="#7B8794", linewidth=0.8, linestyle="--")
-    # 原始归档在 9375 到 15001 之间没有记录，显示空档而不人为插值。
-    for ax in axes:
-        ax.axvspan(9375, 15001, color="#CBD5E1", alpha=0.20)
-    axes[0].text(11200, 0.18, "archived metrics gap\n9,376–15,000", ha="center", va="center", color=MUTED, fontsize=8)
-    axes[1].text(11200, 0.018, "no raw rows", ha="center", va="center", color=MUTED, fontsize=8)
     save(fig, "training-loss-full")
 
 
