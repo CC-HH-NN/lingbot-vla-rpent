@@ -3,6 +3,7 @@
 ## 展示与结果
 
 - [README.md](README.md)：研究问题、结果、Demo、方法和工程入口。
+- [assets/demos/index.html](assets/demos/index.html)：静态原视频播放页，经 GitHub Pages 展示，README 缩略图按回合直接定位。
 - [assets/demos/](assets/demos/)：8 个原始 MP4、已有首帧图及任务/seed/SHA 清单；文件逐 SHA 保持与原录像一致。
 - [assets/figures/](assets/figures/)：训练曲线、checkpoint、推理策略、架构和任务热力图。
 - [results/](results/)：保留分母、任务维度、请求数和模型前向耗时的结果表。

@@ -22,17 +22,19 @@ B29000 的 Clean / Randomized 成功率分别为 **85.6% / 40.0%**。相较 SFT�
 
 ## Demo Gallery
 
+[打开 8 个原视频播放页](https://cc-hh-nn.github.io/lingbot-vla-rpent/assets/demos/)
+
 以下为 **RPent Agent＋B29000** 的 8 个代表性成功回合，覆盖双臂协作、堆叠、多物体操作和随机场景。均使用 **BF16、Fixed50、10 次去噪、Medium 规划与 RPent 发布记忆**。点击缩略图查看原始 MP4；视频保持原始分辨率、帧率和播放速度。
 
 | 双积木堆叠 · Clean | 双积木堆叠 · Randomized |
 | :---: | :---: |
-| [![双积木堆叠 Clean 原视频](assets/demos/t45-s0-k0.jpg)](assets/demos/t45-s0-k0.mp4) | [![双积木堆叠 Randomized 原视频](assets/demos/t45-s1-k0.jpg)](assets/demos/t45-s1-k0.mp4) |
+| [![双积木堆叠 Clean 原视频](assets/demos/t45-s0-k0.jpg)](https://cc-hh-nn.github.io/lingbot-vla-rpent/assets/demos/#t45-s0-k0) | [![双积木堆叠 Randomized 原视频](assets/demos/t45-s1-k0.jpg)](https://cc-hh-nn.github.io/lingbot-vla-rpent/assets/demos/#t45-s1-k0) |
 | **按颜色排列积木 · Randomized** | **双臂抬锅 · Clean** |
-| [![按颜色排列积木原视频](assets/demos/t02-s1-k0.jpg)](assets/demos/t02-s1-k0.mp4) | [![双臂抬锅原视频](assets/demos/t11-s0-k0.jpg)](assets/demos/t11-s0-k0.mp4) |
+| [![按颜色排列积木原视频](assets/demos/t02-s1-k0.jpg)](https://cc-hh-nn.github.io/lingbot-vla-rpent/assets/demos/#t02-s1-k0) | [![双臂抬锅原视频](assets/demos/t11-s0-k0.jpg)](https://cc-hh-nn.github.io/lingbot-vla-rpent/assets/demos/#t11-s0-k0) |
 | **物体放置 · Randomized** | **物体入篮与提篮 · Randomized** |
-| [![物体放置原视频](assets/demos/t20-s1-k0.jpg)](assets/demos/t20-s1-k0.mp4) | [![物体入篮与提篮原视频](assets/demos/t32-s1-k0.jpg)](assets/demos/t32-s1-k0.mp4) |
+| [![物体放置原视频](assets/demos/t20-s1-k0.jpg)](https://cc-hh-nn.github.io/lingbot-vla-rpent/assets/demos/#t20-s1-k0) | [![物体入篮与提篮原视频](assets/demos/t32-s1-k0.jpg)](https://cc-hh-nn.github.io/lingbot-vla-rpent/assets/demos/#t32-s1-k0) |
 | **按压订书机 · Randomized** | **双臂协作扫码 · Randomized** |
-| [![按压订书机原视频](assets/demos/t37-s1-k0.jpg)](assets/demos/t37-s1-k0.mp4) | [![双臂协作扫码原视频](assets/demos/t41-s1-k0.jpg)](assets/demos/t41-s1-k0.mp4) |
+| [![按压订书机原视频](assets/demos/t37-s1-k0.jpg)](https://cc-hh-nn.github.io/lingbot-vla-rpent/assets/demos/#t37-s1-k0) | [![双臂协作扫码原视频](assets/demos/t41-s1-k0.jpg)](https://cc-hh-nn.github.io/lingbot-vla-rpent/assets/demos/#t41-s1-k0) |
 
 任务名称、setting、seed 和原文件 SHA 见 [Demo 清单](assets/demos/manifest.json)。这 8 个成功样例用于展示执行过程，总体表现见下方 250 回合评测。
 
