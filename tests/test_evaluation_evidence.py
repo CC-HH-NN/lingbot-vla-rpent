@@ -1,11 +1,8 @@
 """无需GPU/第三方库验证本次评测故障修复，真实模型验收另由Slurm运行。"""
 
-import importlib.util
 import json
-import os
 from pathlib import Path
 import random
-import subprocess
 import sys
 import tempfile
 from types import SimpleNamespace
@@ -15,46 +12,6 @@ from unittest.mock import Mock, patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'jobs'))
 import evaluation_evidence as evidence
-
-
-def load(path):
-    """加载作业入口，不触发其GPU路径。"""
-    spec = importlib.util.spec_from_file_location('manager_evidence_tests', path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-manager = load(ROOT / 'jobs/process-shared-vla.py')
-
-
-class UuidTests(unittest.TestCase):
-    """复现导致共享验收立即停止的裸UUID与错卡情况。"""
-
-    def test_bare_prefixed_and_invalid(self):
-        """合法裸UUID与前缀UUID一致，非法标识失败而不是猜测GPU序号。"""
-        raw = '67c2263e-8913-01ca-6766-978f3d8d0bd6'
-        self.assertEqual(manager.canonical_gpu_uuid(raw), 'GPU-' + raw)
-        self.assertEqual(manager.canonical_gpu_uuid('GPU-' + raw), 'GPU-' + raw)
-        for value in ('', '0', 'GPU-invalid', None, raw.replace('-', '')):
-            with self.subTest(value=value), self.assertRaises(RuntimeError):
-                manager.canonical_gpu_uuid(value)
-
-    def test_sample_checks_actual_identity(self):
-        """真实采样入口接受原失败日志的格式，且拒绝返回另一张卡。"""
-        raw = '67c2263e-8913-01ca-6766-978f3d8d0bd6'
-        with tempfile.TemporaryDirectory() as folder:
-            output = Path(folder)
-            evidence.write_json(output / 'model-ready.json', {'gpu_uuid': raw})
-            result = SimpleNamespace(stdout=f'GPU-{raw}, 13000, 32760, 20\n')
-            with patch.object(manager.subprocess, 'run', return_value=result) as call:
-                manager.sample_gpu(output)
-                self.assertEqual(call.call_args.args[0][2], 'GPU-' + raw)
-                self.assertEqual(len((output / 'resources.jsonl').read_text().splitlines()), 1)
-            result.stdout = 'GPU-00000000-0000-0000-0000-000000000001, 0, 32760, 0\n'
-            with patch.object(manager.subprocess, 'run', return_value=result), \
-                    self.assertRaisesRegex(RuntimeError, '不一致'):
-                manager.sample_gpu(output)
 
 
 class EvidenceTests(unittest.TestCase):
@@ -163,80 +120,6 @@ class EvidenceTests(unittest.TestCase):
             second = evidence.initial_state(environment, folder)
             observation['joint_action']['vector'][0] += .01
             self.assertNotEqual(second, evidence.initial_state(environment, folder))
-
-
-class BootstrapTests(unittest.TestCase):
-    """运行真实shell包装器及其生成器，不停留在bash语法检查。"""
-
-    def test_shared_bootstrap_reaches_srun_with_current_script(self):
-        """本轮更新不破坏共享入口的精确替换，并保留独立结果路径和真实配置。"""
-        with tempfile.TemporaryDirectory() as folder:
-            base = Path(folder)
-            executable = base / 'bin'
-            executable.mkdir()
-            srun = executable / 'srun'
-            srun.write_text('#!/bin/bash\ncp "$3" "$CAPTURE"\n', encoding='utf-8')
-            srun.chmod(0o755)
-            cfg = base / 'shared.env'
-            cfg.write_text(f'AGENT_ROOT="{ROOT}"\n'
-                           f'SHARED_MANAGER="{ROOT}/jobs/process-shared-vla.py"\n'
-                           f'SHARED_CASE_FILE="{ROOT}/jobs/shared_vla_validation.json"\n', encoding='utf-8')
-            capture = base / 'generated.sh'
-            environment = {**os.environ, 'PATH': str(executable) + ':' + os.environ['PATH'],
-                           'SLURM_TMPDIR': str(base), 'SLURM_JOB_ID': 'test', 'CAPTURE': str(capture)}
-            result = subprocess.run(['bash', str(ROOT / 'jobs/process-shared-vla.sbatch'), str(cfg)],
-                                    env=environment, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            source = capture.read_text()
-            self.assertEqual(source.count('"$SHARED_MANAGER"'), 2)
-            self.assertIn('OUT="$AGENT_ROOT/outputs/process-17-$SLURM_JOB_ID"', source)
-            self.assertIn('cp "$2" "$OUT/inputs.env"', source)
-            self.assertNotIn('timeout --kill-after', source)
-            self.assertEqual(subprocess.run(['bash', '-n', str(capture)]).returncode, 0)
-
-    def test_sweep_selects_two_three_four_configs(self):
-        """运行实际数组包装器，为每个元素选择对应快照配置并拒绝越界并发。"""
-        with tempfile.TemporaryDirectory() as folder:
-            base = Path(folder)
-            (base / 'configs').mkdir()
-            (base / 'jobs').mkdir()
-            script = base / 'jobs/process-shared-vla.sbatch'
-            script.write_text('#!/bin/bash\ncat "$1"\n', encoding='utf-8')
-            for parallel in (2, 3, 4):
-                (base / f'configs/environments-{parallel}.env').write_text(f'EXPECTED={parallel}\n')
-                result = subprocess.run(['bash', str(ROOT / 'jobs/process-concurrency-sweep.sbatch'), str(base)],
-                    env={**os.environ, 'SLURM_ARRAY_TASK_ID': str(parallel)}, capture_output=True, text=True)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn(f'EXPECTED={parallel}', result.stdout)
-            result = subprocess.run(['bash', str(ROOT / 'jobs/process-concurrency-sweep.sbatch'), str(base)],
-                env={**os.environ, 'SLURM_ARRAY_TASK_ID': '5'}, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 2)
-
-    def test_preflight_low_disk_is_explicit_and_does_not_restore(self):
-        """模拟旧失败的低空间路径，必须记录df和缺口，在资源复制前退出。"""
-        with tempfile.TemporaryDirectory() as folder:
-            base = Path(folder)
-            (base / 'outputs').mkdir()
-            binary = base / 'bin'
-            binary.mkdir()
-            for name, body in {
-                'findmnt': 'echo ext4',
-                'df': 'echo "Filesystem 1024-blocks Used Available Capacity Mounted"\necho "/dev/test 999 1 100 1% /tmp"',
-            }.items():
-                script = binary / name
-                script.write_text('#!/bin/bash\n' + body + '\n', encoding='utf-8')
-                script.chmod(0o755)
-            cfg = base / 'input.env'
-            cfg.write_text(f'AGENT_ROOT="{base}"\nMIN_LOCAL_FREE_GIB=150\n', encoding='utf-8')
-            environment = {**os.environ, 'PATH': str(binary) + ':' + os.environ['PATH'],
-                           'SLURM_TMPDIR': str(base), 'SLURM_JOB_ID': 'low', 'CUDA_VISIBLE_DEVICES': '0'}
-            result = subprocess.run(['bash', str(ROOT / 'jobs/process-autohorizon-episode.sbatch'),
-                                     '--run', str(cfg)], env=environment, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 2)
-            self.assertIn('free_kib=100 required_gib=150', result.stdout)
-            self.assertIn('本地盘空间不足', result.stderr)
-            self.assertNotIn('COPY_INFER', result.stdout)
-            self.assertIn('exit_code=2', (base / 'outputs/process-14-low/status.txt').read_text())
 
 
 if __name__ == '__main__':

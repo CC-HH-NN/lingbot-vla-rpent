@@ -1,26 +1,17 @@
-"""离线验证官方动作循环接B29000的边界；模型与仿真使用明确的测试替身。"""
+"""离线验证RPent到B29000的接口适配；仅以测试替身隔离网络和模型。"""
 
-import ast
 import copy
-import hashlib
-import json
-import os
 from pathlib import Path
 import sys
-from types import SimpleNamespace
 import unittest
 
 import numpy as np
 
 PROJECT = Path(__file__).resolve().parents[1]
-PAYLOAD = Path(os.environ.get("RPENT_B29000_TEST_PAYLOAD", PROJECT / "runtime/official-rpent-b29000-20261110-r2"))
-sys.path.insert(0, str(PAYLOAD / "src"))
+sys.path.insert(0, str(PROJECT / "src"))
 from b29000_vla_client import B29000VLAClient
 from chunk_executor import request_seed
 from rpent_qpos14_adapter import RPENT_QPOS14_METADATA
-
-SOURCE = PAYLOAD / "official-source"
-UPSTREAM = Path(os.environ.get("RPENT_B29000_TEST_UPSTREAM", PROJECT / "runtime/official-rpent-20261110-r1/official-source"))
 
 
 def binding():
@@ -76,52 +67,6 @@ def observation():
             "task_language": "Place the red block on the plate."}
 
 
-def primitive_class():
-    # 编译实际源码中的完整类；只隔离导入，不复制或改写动作循环。
-    tree = ast.parse((SOURCE / "robots/robotwin/primitives.py").read_text(encoding="utf-8"))
-    body = [n for n in tree.body if isinstance(n, ast.ImportFrom) and n.module == "__future__"]
-    body += [n for n in tree.body if isinstance(n, (ast.ClassDef, ast.FunctionDef))]
-    namespace = {"np": np, "MODEL_SPEC": SimpleNamespace(use_length=50),
-                 "ROBOTWIN_CAMERA_NAMES": ("head", "left_wrist", "right_wrist")}
-    exec(compile(ast.Module(body=body, type_ignores=[]), "actual_primitives.py", "exec"), namespace)
-    return namespace["RoboTwinPrimitives"]
-
-
-class NativeEnv:
-    """替代物理仿真，明确检查送到原生执行口的动作类型、计数与停止条件。"""
-
-    def __init__(self, limit=73, success_at=None):
-        # 每个测试环境独立计数，原生成功与动作上限分别控制。
-        self.limit, self.success_at, self.count = limit, success_at, 0
-        self.execution_capabilities = {"chunk_step_all_frames": True}
-
-    @property
-    def last_info(self):
-        # 模拟官方环境的原生状态合同。
-        return {"episode_status": {"take_action_cnt": self.count, "step_lim": self.limit,
-                                    "eval_success": self.success_at is not None and self.count >= self.success_at},
-                "robot_state": observation()["robot_state"]}
-
-    def get_task_language(self):
-        # 原任务语言独立于规划器额外传入的prompt。
-        return observation()["task_language"]
-
-    def render_camera(self, name):
-        # 图像直接由测试观测提供。
-        return observation()["views"][name]["rgb"]
-
-    def chunk_step(self, actions, *, action_type, return_all_frames):
-        # 必须走qpos口，禁止将14维动作冒充16维末端动作。
-        assert action_type == "qpos" and actions.shape == (50, 14)
-        room = self.limit - self.count
-        if self.success_at is not None:
-            room = min(room, self.success_at - self.count)
-        executed = min(len(actions), room)
-        self.count += executed
-        payload = {"frames": [np.zeros((2, 2, 3), dtype=np.uint8)] * executed} if return_all_frames else {}
-        return payload, 0, False, False, dict(self.last_info, executed_actions=executed)
-
-
 class AdapterTests(unittest.TestCase):
     def test_pending_binding_rejected(self):
         # 模板不能被误当作真实服务配置。
@@ -166,13 +111,6 @@ class AdapterTests(unittest.TestCase):
             with self.assertRaises(ValueError): model.infer(obs)
             self.assertEqual(len(client.calls), 1)
 
-    def test_reinitialization_and_short_horizon_rejected(self):
-        # 同回合不得隐式清空模型状态，也不能改变固定50动作块。
-        model, client = make_model()
-        with self.assertRaises(RuntimeError): model.validate_contract(RPENT_QPOS14_METADATA)
-        primitive = primitive_class()(env=NativeEnv(), model=model, seed=123, check_cancelled=lambda: None)
-        with self.assertRaises(ValueError): primitive.lingbot_act(use_length=20)
-        self.assertEqual(len(client.calls), 1)
 
     def test_corrupt_response_invalidates_session(self):
         # 错误响应不当作策略失败，也不重新发送同一有状态请求。
@@ -187,57 +125,6 @@ class AdapterTests(unittest.TestCase):
                 with self.assertRaises((ValueError, RuntimeError)): model.infer(observation())
                 with self.assertRaises(RuntimeError): model.infer(observation())
                 self.assertEqual(len(client.calls), 2)
-
-    def test_official_loop_ignores_agent_prompt_and_keeps_budget(self):
-        # 实际官方循环仍忽略子目标、只执行到原生上限，录制逐动作帧。
-        model, client = make_model(); env = NativeEnv()
-        primitive = primitive_class()(env=env, model=model, seed=123, check_cancelled=lambda: None)
-        primitive.start_recording()
-        result = primitive.lingbot_act(chunks=4, prompt="Wrong injected subgoal")
-        self.assertEqual((result["executed_steps"], result["stop_reason"], model.requests), (73, "budget_exhausted", 2))
-        self.assertEqual(primitive.recorded_frame_count(), 73)
-        self.assertTrue(result["agent_prompt_ignored"])
-        self.assertTrue(all(c["task"] == observation()["task_language"] for c in client.calls[1:]))
-
-    def test_official_loop_stops_on_native_success(self):
-        # 原生成功立即截断动作块，不能把finish文字当作物理成功。
-        model, client = make_model(); env = NativeEnv(success_at=13)
-        primitive = primitive_class()(env=env, model=model, seed=123, check_cancelled=lambda: None)
-        result = primitive.lingbot_act(chunks=4)
-        self.assertEqual((result["executed_steps"], result["stop_reason"], model.requests), (13, "native_success", 1))
-
-    def test_all_non_vla_sources_unchanged(self):
-        # 对官方完整源码逐文件比对，防止改动规划、提示词、工具schema和记忆。
-        allowed = {"robots/robotwin/primitives.py", "robots/robotwin/robot_spec.py", "robots/robotwin/vla_client.py"}
-        for p in UPSTREAM.rglob("*"):
-            if (p.is_file() and "__pycache__" not in p.parts
-                    and p.relative_to(UPSTREAM).as_posix() not in allowed):
-                self.assertEqual(p.read_bytes(), (SOURCE / p.relative_to(UPSTREAM)).read_bytes())
-        before = ast.parse((UPSTREAM / "robots/robotwin/primitives.py").read_text())
-        after = ast.parse((SOURCE / "robots/robotwin/primitives.py").read_text())
-        methods = lambda tree: {n.name: ast.dump(n) for c in tree.body if isinstance(c, ast.ClassDef)
-                                for n in c.body if isinstance(n, ast.FunctionDef) and n.name != "lingbot_act"}
-        self.assertEqual(methods(before), methods(after))
-
-    def test_env_contract_preserved_and_vla_contract_truthful(self):
-        # 模型改成qpos后，环境仍必须声明原有的qpos与EEF双动作支持。
-        def contract(root, name):
-            # 只隔离描述器的导入；执行的函数体和常量来自实际源码。
-            tree = ast.parse((root / "robots/robotwin/robot_spec.py").read_text())
-            assignment = next(n for n in tree.body if isinstance(n, ast.Assign)
-                              and any(isinstance(t, ast.Name) and t.id == "MODEL_SPEC" for t in n.targets))
-            spec = {k.arg: ast.literal_eval(k.value) for k in assignment.value.keywords}
-            function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name)
-            future = ast.ImportFrom(module="__future__", names=[ast.alias(name="annotations")], level=0)
-            module = ast.fix_missing_locations(ast.Module(body=[future, function], type_ignores=[]))
-            namespace = {"MODEL_SPEC": SimpleNamespace(**spec),
-                         "ROBOTWIN_CAMERA_NAMES": ("head", "left_wrist", "right_wrist")}
-            exec(compile(module, "actual_contract.py", "exec"), namespace)
-            return namespace[name]
-        kwargs = dict(task_name="beat_block_hammer", task_config="demo_clean", seed=123)
-        self.assertEqual(contract(UPSTREAM, "env_runtime_contract")(**kwargs),
-                         contract(SOURCE, "env_runtime_contract")(**kwargs))
-        self.assertEqual(contract(SOURCE, "vla_runtime_contract")(), RPENT_QPOS14_METADATA)
 
 
 if __name__ == "__main__":

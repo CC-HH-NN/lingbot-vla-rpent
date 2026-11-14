@@ -1,6 +1,0 @@
-{
-  "max_attempts": 3,
-  "retry_delays_s": [1, 2],
-  "health_timeout_s": 2,
-  "poll_s": 0.2
-}

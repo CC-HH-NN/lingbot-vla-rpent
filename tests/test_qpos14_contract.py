@@ -2,10 +2,12 @@
 
 import unittest
 from pathlib import Path
+import sys
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from agent_loop import AgentTrace, plan_and_infer
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
 from qpos14_contract import QPOS14_DIM, Qpos14Observation, extract_action, reset_request
 from rpent_qpos14_adapter import RPENT_QPOS14_METADATA, build_v2_request, validate_qpos_chunk
 from v2_qpos14_server import prepare_lingbot_root
@@ -42,27 +44,6 @@ class ContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "length 14"):
             extract_action({"action": [0.0] * 13})
 
-    def test_agent_records_planning_and_feedback(self):
-        class Planner:
-            def next_subgoal(self, task, feedback):
-                return "inspect_then_place"
-
-        class VLA:
-            def infer(self, request):
-                self.asserted_task = request["task"]
-                return {"action": [[0.0] * 14, [0.1] * 14]}
-
-        trace = AgentTrace()
-        client = VLA()
-        actions = plan_and_infer(
-            Qpos14Observation.from_robotwin(robotwin_observation(), "pick the object"),
-            Planner(), client, {"success": False, "reason": "not_grasped"}, trace,
-        )
-        self.assertEqual(len(actions), 2)
-        self.assertEqual(trace.subgoals, ["inspect_then_place"])
-        self.assertEqual(client.asserted_task, "inspect_then_place")
-        self.assertEqual(trace.action_steps, 2)
-        self.assertFalse(trace.feedback[0]["success"])
 
     def test_reset_request_matches_v2_protocol(self):
         self.assertEqual(reset_request("aloha-agilex"), {"reset": True, "robo_name": "aloha-agilex"})

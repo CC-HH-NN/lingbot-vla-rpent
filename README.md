@@ -45,11 +45,11 @@
 
 </details>
 
-## System Overview
+## Experimental Setup
 
-![训练、推理与 RPent 系统架构](assets/figures/system-architecture.svg)
+**评测设置：** 每组 **25 任务 × 2 设置（Clean / Randomized）× 5 seed＝250 回合**，采用 RoboTwin 原生成功判据。正常策略失败计入分母；初始化或专家规划故障按既定规则顺延 seed。评估范围为固定任务集合下的场景鲁棒性。
 
-**评测设置：** 每组 **25 任务 × 2 设置（Clean / Randomized）× 5 seed＝250 回合**。采用 RoboTwin 原生成功判据；正常策略失败计入分母，初始化或专家规划故障单独记录并按既定规则顺延 seed。评估范围为固定任务集合下的场景鲁棒性。
+**默认推理配置：** **BF16 · 10 次去噪 · batch 1 · 50 步预测动作窗**。纯 VLA 基线同步执行 50 步（Fixed50），各推理策略的执行窗口与调度方式见下文对照。
 
 ## Post-Training
 

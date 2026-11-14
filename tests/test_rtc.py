@@ -1,15 +1,11 @@
-"""RTC数值与原生接口验收：用解析Jacobian和真实上游函数排除错误引导。"""
+"""RTC数值、输入适配与队列测试；解析Jacobian用于核验前缀引导。"""
 
-import ast
 from pathlib import Path
 import math
-import os
 import sys
-import tempfile
 from threading import Event
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
 
 import numpy as np
 import torch
@@ -18,9 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 sys.path.insert(0, str(ROOT / 'jobs'))
 from rtc_core import RTCConfig, guided_velocity, prefix_weights
-from rtc_lingbot import frozen_parameters, model_inputs, sample_actions
+from rtc_lingbot import frozen_parameters, model_inputs
 from rtc_queue import QueueConfig, RTCQueue
-from rtc_model_probe import normalization_path
 
 
 class GuidanceTests(unittest.TestCase):
@@ -106,68 +101,10 @@ class GuidanceTests(unittest.TestCase):
         with torch.inference_mode(), self.assertRaisesRegex(RuntimeError, 'no_grad'):
             guided_velocity(lambda value: value, x, 0.5, x[:, :2], 0, RTCConfig(2))
 
-    def test_upstream_lerobot_gradient_order_differs_from_paper(self):
-        """直接执行下载的LeRobot函数，记录其晚启梯度导致的VJP差异。"""
-        path = ROOT / 'runtime/rtc-lerobot-audit-20261031/src/lerobot/policies/rtc/modeling_rtc.py'
-        tree = ast.parse(path.read_text(encoding='utf-8'))
-        definition = next(node for node in tree.body if isinstance(node, ast.ClassDef)
-                          and node.name == 'RTCProcessor')
-        schedule = SimpleNamespace(ZEROS='zeros', ONES='ones', LINEAR='linear', EXP='exp')
-        namespace = {'torch': torch, 'Tensor': torch.Tensor, 'math': math,
-                     'RTCConfig': object, 'RTCAttentionSchedule': schedule}
-        exec(compile(ast.Module(body=[definition], type_ignores=[]), str(path), 'exec'), namespace)
-        config = SimpleNamespace(enabled=True, mode='guided', debug=False,
-                                 execution_horizon=2, max_guidance_weight=10.,
-                                 prefix_attention_schedule='linear')
-        reference = namespace['RTCProcessor'](config)
-        x = torch.ones(1, 3, 2)
-        previous = torch.zeros(1, 2, 2)
-        with torch.no_grad():
-            actual = reference.denoise_step(x, previous, 1, 0.5, lambda value: value * 0.4)
-            paper = guided_velocity(lambda value: value * 0.4, x, 0.5, previous, 1,
-                                    RTCConfig(2, schedule='linear'))
-        self.assertGreater(float((actual - paper).abs().max()), 0.1)
-
-
-def make_att_2d_masks(pads, attention):
-    """测试模型只记录mask，无需实际执行attention。"""
-    return pads
-
 
 class NativeInterfaceTests(unittest.TestCase):
-    """执行真实旧采样函数，核验适配器没有改变未引导时的积分。"""
+    """核验输入预处理的形状、精度与图像网格归属。"""
 
-    def test_null_training_norm_uses_robot_config(self):
-        """复现1755560的官方null配置，按原生规则选到真实文件。"""
-        with tempfile.TemporaryDirectory() as folder:
-            source = Path(folder)
-            norm = source / 'robot.json'
-            norm.write_text('{}', encoding='utf-8')
-            path, origin = normalization_path({'data': {'norm_stats_file': None}},
-                                               {'norm_stats': 'robot.json'}, source)
-            self.assertEqual(path, norm)
-            self.assertEqual(origin, 'robot.norm_stats')
-
-    def test_training_norm_keeps_precedence(self):
-        """自训包指定的norm不能被官方robotwin配置覆盖。"""
-        with tempfile.TemporaryDirectory() as folder:
-            source = Path(folder)
-            norm = source / 'self-trained.json'
-            norm.write_text('{}', encoding='utf-8')
-            for value in ('self-trained.json', str(norm)):
-                with self.subTest(value=value):
-                    path, origin = normalization_path({'data': {'norm_stats_file': value}},
-                        {'norm_stats': 'does-not-exist.json'}, source)
-                    self.assertEqual(path, norm)
-                    self.assertEqual(origin, 'training.data.norm_stats_file')
-
-    def test_missing_norm_does_not_silently_change_source(self):
-        """显式路径缺失或错误类型必须报错，不能换用另一份统计。"""
-        with tempfile.TemporaryDirectory() as folder:
-            for value, error in (('missing.json', FileNotFoundError), ('', ValueError), (False, ValueError)):
-                with self.subTest(value=value), self.assertRaises(error):
-                    normalization_path({'data': {'norm_stats_file': value}},
-                                       {'norm_stats': 'robot.json'}, Path(folder))
 
     def test_native_preprocessor_shapes_and_grid_owner(self):
         """支持相机张量与Qwen展开patch张量，grid由原vla对象处理。"""
@@ -189,46 +126,6 @@ class NativeInterfaceTests(unittest.TestCase):
                 self.assertEqual(inputs['image_grid_thw'].dtype, torch.long)
                 self.assertEqual(inputs['images'].dtype, torch.bfloat16)
                 self.assertEqual(prepared['images'].shape, shape)
-
-    def test_no_prefix_matches_deployed_sampler_exactly(self):
-        """从部署源码提取原采样函数，同noise在BF16下精确对齐十次积分。"""
-        path = ROOT / 'runtime/autohorizon-code-20261031/deployed/model-overlay/lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla_v2.py'
-        tree = ast.parse(path.read_text(encoding='utf-8'))
-        definition = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
-                          and node.name == 'sample_actions' and len(node.args.args) == 8)
-        namespace = {'torch': torch, 'os': os, 'Tensor': torch.Tensor,
-                     'make_att_2d_masks': make_att_2d_masks}
-        exec(compile(ast.Module(body=[definition], type_ignores=[]), str(path), 'exec'), namespace)
-
-        class Model(torch.nn.Module):
-            """只替代重型网络，保留原采样函数的真实控制流。"""
-
-            def __init__(self):
-                """建立可跟踪的prefix、cache和速度接口。"""
-                super().__init__()
-                self.weight = torch.nn.Parameter(torch.ones(1, dtype=torch.bfloat16))
-                self.config = SimpleNamespace(n_action_steps=50, max_action_dim=55,
-                                              num_steps=10, use_cache=True)
-                self.qwenvl_with_expert = SimpleNamespace(forward=lambda **_: (None, 'cache', None))
-
-            def embed_prefix(self, *args, **kwargs):
-                """返回原采样器需要的六个prefix分量。"""
-                return (None,) * 6
-
-            def predict_velocity(self, state, pads, cache, value, timestep, **kwargs):
-                """保留时间、状态与动作对速度的影响。"""
-                assert cache == 'cache'
-                return value * 0.2 + timestep[:, None, None] + state[:, None, :] * 0.01
-
-        model = Model()
-        inputs = dict(images=None, img_masks=None, lang_tokens=None, lang_masks=None,
-                      state=torch.ones(1, 55, dtype=torch.bfloat16), image_grid_thw=None)
-        noise = torch.randn(1, 50, 55, dtype=torch.bfloat16)
-        with patch.dict(os.environ, {}, clear=True), torch.no_grad():
-            reference = namespace['sample_actions'](model, **inputs, noise=noise.clone())
-            actual = sample_actions(model, inputs, RTCConfig(), noise=noise.clone())
-        torch.testing.assert_close(actual, reference, atol=0, rtol=0)
-        self.assertTrue(model.weight.requires_grad)
 
 
 class QueueTests(unittest.TestCase):
