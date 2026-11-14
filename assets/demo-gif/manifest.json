@@ -1,0 +1,112 @@
+{
+  "description": "Full-length looping GIF derivatives at 10 fps; original framing and playback speed retained. Duration rounded to nearest 0.1 s. Original 20 fps MP4 files unchanged.",
+  "encoder": "ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers",
+  "filter_complex": "[0:v]fps=10,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle",
+  "loop": 0,
+  "videos": [
+    {
+      "case_id": "t45-s0-k0",
+      "gif": "t45-s0-k0.gif",
+      "source": "../demos/t45-s0-k0.mp4",
+      "source_sha256": "6af9ff7c408cbb21877f0106f933c9b6debfda8a6102e0e95b4427cf6e939a33",
+      "sha256": "a376b467f4ea7c89352d54867f2e712a7ed8410eb5c49f52803064953e8676a5",
+      "bytes": 6396326,
+      "width": 320,
+      "height": 240,
+      "fps": 10,
+      "frames": 143,
+      "duration_s": 14.3
+    },
+    {
+      "case_id": "t02-s1-k0",
+      "gif": "t02-s1-k0.gif",
+      "source": "../demos/t02-s1-k0.mp4",
+      "source_sha256": "89bd5c352931bf1ccfa9daea8e53523cb90b0618eb5c4dd74d0dedf2b027dce7",
+      "sha256": "e2c7e2342eb80a5f593d729213da9676e72aed0b2867384733974a3e67a4f173",
+      "bytes": 6578019,
+      "width": 320,
+      "height": 240,
+      "fps": 10,
+      "frames": 212,
+      "duration_s": 21.2
+    },
+    {
+      "case_id": "t11-s0-k0",
+      "gif": "t11-s0-k0.gif",
+      "source": "../demos/t11-s0-k0.mp4",
+      "source_sha256": "ec0623b5010ef43132521c13ea480647fe4cb9834f5d76ab83f9d35126e8181e",
+      "sha256": "c26eafcd769a5f36dbc66dbd2ee8df5f94933e4895c16bbb653b1da3e313c5e4",
+      "bytes": 2714053,
+      "width": 320,
+      "height": 240,
+      "fps": 10,
+      "frames": 51,
+      "duration_s": 5.1
+    },
+    {
+      "case_id": "t20-s1-k0",
+      "gif": "t20-s1-k0.gif",
+      "source": "../demos/t20-s1-k0.mp4",
+      "source_sha256": "b1350b0e28641f0e354703831618d2d56708617b7d3b923dbbed6a3d43fe3d1f",
+      "sha256": "90939d7db7e755ad4df7961de76382dd50ea1aeb7f754203633290dfd662bdd3",
+      "bytes": 2700250,
+      "width": 320,
+      "height": 240,
+      "fps": 10,
+      "frames": 84,
+      "duration_s": 8.4
+    },
+    {
+      "case_id": "t32-s1-k0",
+      "gif": "t32-s1-k0.gif",
+      "source": "../demos/t32-s1-k0.mp4",
+      "source_sha256": "3ba5bc236e6e580676aadfb817e38cd15a5ca70e15f1e2a04a91fc22f13c189d",
+      "sha256": "2035a3a72fc28731c8da86ed58689e0b7fa52df469e567580db975a3df46ac06",
+      "bytes": 4769668,
+      "width": 320,
+      "height": 240,
+      "fps": 10,
+      "frames": 124,
+      "duration_s": 12.4
+    },
+    {
+      "case_id": "t37-s1-k0",
+      "gif": "t37-s1-k0.gif",
+      "source": "../demos/t37-s1-k0.mp4",
+      "source_sha256": "35dfd7f75072ebaed6acb49f35729ee0efae45e51cbfdbaa10fa5c44a1d5feb4",
+      "sha256": "3dee54aede7f01845c882425a0febf663ef9fafa91c4ac80599c14cd80b14463",
+      "bytes": 5083896,
+      "width": 320,
+      "height": 240,
+      "fps": 10,
+      "frames": 152,
+      "duration_s": 15.2
+    },
+    {
+      "case_id": "t41-s1-k0",
+      "gif": "t41-s1-k0.gif",
+      "source": "../demos/t41-s1-k0.mp4",
+      "source_sha256": "aeb8b8e83193fe9b281fd5969c48e259ff2bdd9650692f5ec1e3d95ee84730eb",
+      "sha256": "06e94cbcefa302bb77c62aeca0da39b4f80b29b0abad4b9986a6c3284d044663",
+      "bytes": 5424531,
+      "width": 320,
+      "height": 240,
+      "fps": 10,
+      "frames": 138,
+      "duration_s": 13.8
+    },
+    {
+      "case_id": "t45-s1-k0",
+      "gif": "t45-s1-k0.gif",
+      "source": "../demos/t45-s1-k0.mp4",
+      "source_sha256": "92c08939b9d3d17a4c8b0e93af3d3d6ce8867754e3c313e067b86f181f9d2336",
+      "sha256": "38dc056bf1e76272ec85eecc4dd18e31bc915fceaf996e3e67227a741c16e051",
+      "bytes": 5050912,
+      "width": 320,
+      "height": 240,
+      "fps": 10,
+      "frames": 145,
+      "duration_s": 14.5
+    }
+  ]
+}
