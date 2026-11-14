@@ -7,3 +7,4 @@ PyYAML>=6
 packaging>=24
 einops>=0.8
 pytest>=8
+matplotlib>=3.8

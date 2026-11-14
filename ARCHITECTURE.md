@@ -1,34 +1,37 @@
 # Architecture
 
-这个公开副本按“展示贡献—查看证据—阅读实现”组织，运行时依赖和集群部署不属于公开层。
+## 展示与结果
 
-## 展示层
+- [README.md](README.md)：研究问题、结果、Demo、方法和工程入口。
+- [assets/demos/](assets/demos/)：8 个原始 MP4、已有首帧图及任务/seed/SHA 清单；文件逐 SHA 保持与原录像一致。
+- [assets/figures/](assets/figures/)：训练曲线、checkpoint、推理策略、架构和任务热力图。
+- [results/](results/)：保留分母、任务维度、请求数和模型前向耗时的结果表。
+- [docs/experiment-protocol.md](docs/experiment-protocol.md)、[docs/results-summary.md](docs/results-summary.md)：协议、批次来源和解释边界。
 
-- `README.md`：项目定位、个人贡献、核心结果、图表和结论边界。
-- `assets/figures/`：展示训练曲线、checkpoint 对比、推理策略折中、系统架构和任务级热力图的 SVG/PNG 图。
-- `results/`：脱敏后的汇总表，保留成功率分母、任务维度、请求次数和训练曲线采样。
-- `docs/experiment-protocol.md`、`docs/results-summary.md`：评测协议、证据来源和可解释范围。
+## VLA 与执行调度
 
-## Core modules
+- [src/rpent_qpos14_adapter.py](src/rpent_qpos14_adapter.py)：三相机、机器人状态和 qpos14 请求/响应合同。
+- [src/b29000_vla_client.py](src/b29000_vla_client.py)：RPent 到 B29000 服务的身份验证、reset、请求序号和 noise seed。
+- [src/v2_qpos14_server.py](src/v2_qpos14_server.py)：既有 LingBot V2 checkpoint 的服务入口。
+- [src/checkpoint_shared_rpc.py](src/checkpoint_shared_rpc.py)：共享模型的独立连接与随机上下文。
+- [src/chunk_executor.py](src/chunk_executor.py)：固定窗口、异步请求和旧动作交接。
+- [src/autohorizon.py](src/autohorizon.py)：注意力双向软指针与执行前缀选择。
+- [src/rtc_core.py](src/rtc_core.py)、[src/rtc_lingbot.py](src/rtc_lingbot.py)：前缀约束、完整 VJP 与 LingBot 采样适配。
 
-- `src/b29000_vla_client.py`：VLA 客户端协议与固定动作块请求。
-- `src/v2_qpos14_server.py`：qpos14 输入/输出契约和模型服务边界。
-- `src/autohorizon.py`：从动作 token 注意力计算自适应执行前缀。
-- `src/rtc_core.py`、`src/rtc_queue.py`、`src/rtc_lingbot.py`：RTC 队列、动作接纳和模型侧接口。
-- `src/openai_planner.py`：兼容 OpenAI API 的结构化规划请求与有限重试。
-- `src/planner_control.py`：规划、动作执行、预算和恢复状态机。
-- `src/experience_memory.py`、`src/frozen_agent_memory.py`：经验整理、检索和只读冻结记忆。
-- `src/feedback_analysis.py`：根据观测变化生成反馈信号。
-- `src/agent_loop.py`、`src/agent_rpent_bridge.py`：Agent 主循环及 RPent 适配边界。
-- `src/evaluation_evidence.py`：逐回合身份、失败分类和结果证据。
+## Agent 链路
 
-## Data flow
+```text
+RPent 规划器 + 发布记忆
+    → 图像观察 / 工具选择
+    → 解析动作工具 或 B29000 VLA 客户端
+    → RoboTwin 原生执行、预算与成功状态
+    → 反馈至下一次规划
+```
 
-1. `evaluation_evidence` 固定任务、场景、初态、seed、checkpoint 和推理配置。
-2. `openai_planner` 生成结构化阶段计划或继续/恢复决策。
-3. `planner_control` 将决策交给动作原语和 `b29000_vla_client`。
-4. VLA 产生动作块；`autohorizon`/RTC 决定执行前缀。
-5. 仿真器返回状态与成功判据；`feedback_analysis` 生成下一次规划上下文。
-6. 回合结果与 API、动作、失败原因写入独立证据文件，再汇总到公开 `results/`。
+最终 Agent 评测使用上游 RPent 规划器、工具 schema、提示词和记忆，VLA 接口适配为 B29000/qpos14。VLA 接收原始任务语言。记忆与 checkpoint 分开管理。
 
-集群调度、私有模型服务和真实 RoboTwin 资产属于部署层，未放入此公开副本。
+`src/agent_rpent_bridge.py`、`agent_loop.py`、`planner_control.py`、`openai_planner.py`、`experience_memory.py`、`frozen_agent_memory.py` 和 `agent_batch_ledger.py` 保留了早期探索及评测基础设施；这些模块不作为最终 RPent 162/250 结果的规划与记忆实现入口。
+
+## 分析
+
+[scripts/plot_showcase.py](scripts/plot_showcase.py) 读取 `results/` 并绘图。训练曲线保留原日志缺口；checkpoint 筛选与后续 Fixed50 复核分批记录。Demo 是成功样例，整体成功率取完整评测表。

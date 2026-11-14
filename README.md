@@ -1,87 +1,89 @@
-# LingBot-VLA：Post-Training、Inference Optimization 与 RPent Agent
+# LingBot-VLA 2.0: Post-Training, Closed-Loop Evaluation & RPent Integration
 
-一个面向双臂操作 VLA 的 Research + Engineering 项目：从 LingBot-VLA 2.0 后训练开始，比较不同 checkpoint 和推理策略，再将选定的 VLA 接入官方 RPent Agent，形成从模型训练、闭环评测到高层规划的完整链路。
+基于 LingBot-VLA 2.0，在 **RoboTwin 双臂仿真环境**中比较后训练路线、动作执行策略与高层规划对闭环任务表现的影响。先通过 Clean / Randomized 评测选择 checkpoint，再固定模型研究推理调度，最后将选定的 VLA 接入 RPent Agent，验证规划、工具执行和环境反馈的协作链路。
 
-## Demo
+项目围绕三个问题展开：
 
-> **Demo 视频区域预留。** 后续会从成功的 RoboTwin 回合中选择少量代表性视频，并在每个视频旁标注任务、setting、checkpoint、推理策略和 seed。当前先使用系统架构图、训练曲线、成功率图和任务热力图展示结果，避免把早期 smoke 录像误写成正式结果。
+- **后训练**：视觉增强和 teacher–student 约束能否改善场景变化下的任务表现？
+- **推理执行**：动作块执行多长、何时重新观察，如何影响成功率和模型调用成本？
+- **Agent 集成**：高层规划如何调用 VLA 与解析动作工具，并根据执行反馈继续决策？
 
-## Highlights
+## Highlights & Key Findings
 
-| 方向 | 项目结果 |
-| --- | --- |
-| 后训练 | 比较 SFT、视觉增强、ActionEMA、B/C 路线，按同一 250 回合协议选择 checkpoint |
-| checkpoint 选择 | B29000 在当前候选中达到 157/250（62.8%），作为后续推理和 Agent 实验的底层权重 |
-| 推理策略 | Fixed20 达到 167/250（66.8%）；请求次数约为 Fixed50 的 2.36 倍 |
-| Agent 集成 | 官方 RPent Agent 完成 250 回合评测，结果为 162/250（64.8%） |
+| 方向 | 主要结果 | 实验含义 |
+| --- | --- | --- |
+| **后训练与模型选择** | **B29000：157/250 · 62.8%**，较 SFT 增加 **7.6 个百分点** | 在已测训练路线中选定后续底层权重 |
+| **推理执行策略** | **Fixed20：167/250 · 66.8%**，较独立 Fixed50 增加 **3.2 个百分点** | 模型请求为 Fixed50 的 **2.36 倍**，体现反馈频率与计算成本的折中 |
+| **RPent 系统集成** | **162/250 · 64.8%** | 完成 B29000 与 RPent 的多任务闭环验证；跨环境批次的差值不能解释为严格因果增益 |
 
-## 项目主线
+![Checkpoint success rate](assets/figures/checkpoint-success.svg)
 
-```text
-LingBot-VLA 2.0
-      │
-      ▼
-Post-Training Experiments
-SFT · Augmentation · EMA · B/C routes
-      │
-      ▼
-RoboTwin Evaluation
-Clean / Randomized · checkpoint selection
-      │
-      ▼
-Inference Optimization
-Fixed horizon · AutoHorizon · Async · RTC
-      │
-      ▼
-Official RPent Agent Integration
-Planning · Tools · Memory · VLA execution · Feedback
-```
+B29000 的 Clean / Randomized 成功率分别为 **85.6% / 40.0%**。相较 SFT，分别提高 9.6 和 5.6 个百分点，但两种设置仍相差 **45.6 个百分点**。后训练改善了本批次结果，Randomized 场景仍是主要瓶颈。
 
-项目的重点不是提出一个孤立的新模型，而是把每次失败拆解到训练配方、动作执行调度或高层任务规划，分别验证哪一层真正影响闭环表现。
+## Demo Gallery
 
-## 系统架构
+以下为 **RPent Agent＋B29000** 的 8 个代表性成功回合，覆盖双臂协作、堆叠、多物体操作和随机场景。均使用 **BF16、Fixed50、10 次去噪、Medium 规划与 RPent 发布记忆**。点击缩略图查看原始 MP4；视频保持原始分辨率、帧率和播放速度。
+
+| 双积木堆叠 · Clean | 双积木堆叠 · Randomized |
+| :---: | :---: |
+| [![双积木堆叠 Clean 原视频](assets/demos/t45-s0-k0.jpg)](assets/demos/t45-s0-k0.mp4) | [![双积木堆叠 Randomized 原视频](assets/demos/t45-s1-k0.jpg)](assets/demos/t45-s1-k0.mp4) |
+| **按颜色排列积木 · Randomized** | **双臂抬锅 · Clean** |
+| [![按颜色排列积木原视频](assets/demos/t02-s1-k0.jpg)](assets/demos/t02-s1-k0.mp4) | [![双臂抬锅原视频](assets/demos/t11-s0-k0.jpg)](assets/demos/t11-s0-k0.mp4) |
+| **物体放置 · Randomized** | **物体入篮与提篮 · Randomized** |
+| [![物体放置原视频](assets/demos/t20-s1-k0.jpg)](assets/demos/t20-s1-k0.mp4) | [![物体入篮与提篮原视频](assets/demos/t32-s1-k0.jpg)](assets/demos/t32-s1-k0.mp4) |
+| **按压订书机 · Randomized** | **双臂协作扫码 · Randomized** |
+| [![按压订书机原视频](assets/demos/t37-s1-k0.jpg)](assets/demos/t37-s1-k0.mp4) | [![双臂协作扫码原视频](assets/demos/t41-s1-k0.jpg)](assets/demos/t41-s1-k0.mp4) |
+
+任务名称、setting、seed 和原文件 SHA 见 [Demo 清单](assets/demos/manifest.json)。这 8 个成功样例用于展示执行过程，总体表现见下方 250 回合评测。
+
+## System Architecture
 
 ![LingBot-VLA system architecture](assets/figures/system-architecture.svg)
 
-项目贡献与上游组件的边界如下：
+系统包含模型后训练、RoboTwin 闭环评测、动作执行调度和 RPent 高层规划四部分。先选模型，再固定 checkpoint 比较执行策略，最后验证 Agent 集成，分别记录每一层的结果和成本。
 
-| 层级 | 依赖的上游能力 | 本项目完成的工作 |
+| 层级 | 上游能力 | 本项目的实现 |
 | --- | --- | --- |
-| VLA | LingBot-VLA 2.0 | 后训练路线、checkpoint 选择和 qpos14 服务接口 |
-| 仿真 | RoboTwin 2.0 | 冻结任务/场景/seed，统一成功判据和失败记账 |
-| 推理 | 动作块与 VLA 服务 | Fixed horizon、AutoHorizon、异步动作队列和 RTC 对照 |
-| Agent | 官方 RPent | 官方规划器、工具和 memory 接入，以及 B29000 VLA 适配 |
-| 分析 | 结果账本与可视化 | 逐任务结果、训练曲线、请求成本和热力图 |
+| 后训练 | LingBot-VLA 2.0 | 多阶段配方、teacher 约束与 checkpoint 比较 |
+| 仿真与评测 | RoboTwin | 公共场景清单、seed/初态记录、动作预算和失败分类 |
+| 推理执行 | VLA 动作块预测 | 固定窗口、论文 AutoHorizon 适配、异步队列和 guided RTC |
+| Agent | RPent 规划、工具与记忆 | B29000 qpos14 适配、三相机映射、服务身份验证和闭环接入 |
+| 结果分析 | 逐回合记录 | 训练曲线、任务级成功率、请求次数与前向耗时对照 |
 
-## 评测协议
+## Evaluation Protocol
+
+每组实验配置评测 **250 回合：25 个任务 × 2 种场景设置 × 每种设置 5 个预定义场景实例**。Clean 和 Randomized 各 125 回合。
 
 | 项目 | 设置 |
 | --- | --- |
 | 基础模型 | LingBot-VLA 2.0 6B |
-| 训练数据 | RoboTwin clean 数据，50 个任务、2,500 条示教、549,787 帧 |
-| 后训练资源 | 4×H100、FSDP2、Muon + AdamW、global batch 256 |
-| 评测任务 | 25 个任务 × 2 个 setting × 5 个公共场景 = 250 回合/条件 |
-| setting | `demo_clean` 与 `demo_randomized` |
-| 单次推理 | BF16、10 次去噪、batch size 1、预测动作窗 50 |
+| 训练数据 | RoboTwin clean，50 个任务、2,500 条示教、549,787 帧 |
+| 后训练资源 | 4×H100、FSDP2、Muon＋AdamW、global batch 256 |
+| 场景设置 | `demo_clean` / `demo_randomized` |
+| VLA 默认推理 | BF16、10 次去噪、batch size 1、预测动作窗 50 |
 | 成功判据 | RoboTwin 原生 `eval_success` |
 
-每个回合保留唯一身份、checkpoint、任务、setting、场景、seed、动作请求、异常类型和最终结果。环境初始化失败、专家规划失败、接口异常与模型正常失败分开记账；只有预先定义的客观环境故障才允许按协议顺延 seed。
+本组实验评估固定任务集合下的场景鲁棒性，不据此主张未见任务泛化。每回合记录 checkpoint、任务、场景、请求 seed、实际 seed、动作预算和最终状态。初始化或专家规划故障与正常策略失败分开记账；只有预定义的客观环境故障允许顺延 seed，正常失败保留在分母中。
 
-## Post-Training：路线比较与 checkpoint 选择
+同一批次使用冻结的公共场景。跨服务器评测保留各自批次来源，Agent 还存在环境版本与原生初始化顺延差异。协议与结果说明见 [评测协议](docs/experiment-protocol.md)和[结果说明](docs/results-summary.md)。
 
-第一阶段建立 SFT 基线，再针对 clean 与 randomized 之间的差距比较视觉增强、动作 EMA 和 teacher 约束。不同路线同时改变了训练配方中的多个因素，因此结果用于路线选择，不能归因到单一技巧。
+## Post-Training Experiments
+
+### 路线与假设
+
+先建立 SFT 基线，再针对 Clean / Randomized 差距逐步加入视觉增强和 teacher 约束。B 路线固定 clean teacher，约束增强视图下的 student 输出，希望在外观变化时保留原有动作能力；C 路线改为动态 EMA teacher，考察随 student 更新的监督目标能否取得更好的闭环结果。
 
 | 路线 | 训练阶段 | 主要变化 | 评测权重 |
 | --- | --- | --- | --- |
-| SFT baseline | 0 → 16,000 | 官方 clean 示教监督微调 | SFT16000 raw |
+| SFT baseline | 0 → 16,000 | clean 示教监督微调 | SFT16000 raw |
 | Enhanced | 16,000 → 23,000 | 颜色、噪声、模糊、JPEG 等视觉增强 | Enhanced23000 raw |
-| ActionEMA | 23,000 → 26,000 | 动作模块 shadow EMA | ActionEMA26000 |
-| B route | 26,000 → 29,000 | 固定 clean teacher，对增强视图施加一致性约束 | **B29000 student** |
+| ActionEMA | 23,000 → 26,000 | 维护动作模块 shadow EMA | ActionEMA26000 |
+| B route | 26,000 → 29,000 | 固定 clean teacher、增强视图一致性 | **B29000 student** |
 | C route | 26,000 → 29,000 | dynamic EMA teacher | C29000 student / teacher |
 
-![Checkpoint success rate](assets/figures/checkpoint-success.svg)
+### Checkpoint 结果
 
-所有 checkpoint 都按 125 个 clean + 125 个 randomized 回合统计。C 路线来自同一评测口径，纳入统一的 checkpoint 对照表。
+每份权重包含 125 个 Clean＋125 个 Randomized 回合。前四份来自 checkpoint 筛选批次，C student / teacher 来自后续同规模评测。
 
 | Checkpoint | Clean | Randomized | Overall |
 | --- | ---: | ---: | ---: |
@@ -92,101 +94,103 @@ Planning · Tools · Memory · VLA execution · Feedback
 | C29000 student | 102/125 · 81.6% | 49/125 · 39.2% | 151/250 · 60.4% |
 | C29000 dynamic-EMA teacher | 106/125 · 84.8% | 45/125 · 36.0% | 151/250 · 60.4% |
 
-B29000 比 SFT 基线多成功 19 个回合，整体提高 7.6 个百分点，因此被选为后续推理和 Agent 实验的底层权重。C student 与 C teacher 总分相同，但成功回合并不完全一致；当前没有超过 B29000 的证据。
+B29000 比 SFT 多成功 19 回合，被选为后续主权重。C student 与 teacher 总分相同，Clean / Randomized 分布不同，均未超过 B29000；更多训练和 EMA 也没有带来单调改善。各路线同时改变了训练步数及配方因素，这些结果支持路线选择，不能单独归因为一致性约束或 EMA 的净收益。
 
-训练曲线用于检查训练稳定性，模型选择仍以留出任务成功率为准。9,376→15,000 步没有保留原始日志，图中保留空档，没有插值。
+**B29000 的两组分数对应不同批次。** checkpoint 筛选为 **157/250（62.8%）**；后续独立 Fixed50 复核为 **159/250（63.6%）**，同批次 B29000 也高于两份 C 权重。前者用于模型选择，后者作为推理策略基线，分别保留统计。
+
+### 训练曲线
 
 ![Full archived training loss](assets/figures/training-loss-full.svg)
 
-## Inference Optimization：动作执行窗口与闭环折中
+曲线覆盖已归档的 SFT 到 B29000 训练日志。9,376→15,000 步保留真实日志缺口，没有插值。训练 loss 用于检查优化过程，checkpoint 选择依据固定评测集上的闭环成功率。
 
-VLA 一次预测一段动作，但实际执行多长再重新观察，会同时改变反馈频率、动作连续性和模型调用成本。固定 B29000 checkpoint，比较六种已实际运行的策略：
+## Inference Optimization
+
+固定 B29000，保持预测动作窗 50，比较实际执行长度、异步请求和前缀引导。重新观察的频率会同时影响反馈、连续性和模型调用成本。
 
 ![Inference strategy comparison](assets/figures/inference-strategies.svg)
 
-| Strategy | 执行方式 | Overall | Clean | Randomized | 请求次数 |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Fixed50 | 每次执行 50 步 | 63.6% | 107/125 | 52/125 | 1,725 |
-| Fixed30 | 每次执行 30 步 | 59.6% | 103/125 | 46/125 | 3,024 |
-| **Fixed20** | 每次执行 20 步 | **66.8%** | 110/125 | 57/125 | 4,073 |
-| AutoHorizon | 根据动作注意力选择执行前缀 | 62.0% | 106/125 | 49/125 | 3,483 |
-| Async25 | 执行旧动作时异步生成下一块 | 65.2% | 110/125 | 53/125 | 3,336 |
-| RTC25 | 异步生成并用未执行前缀引导新动作块 | 60.0% | 105/125 | 45/125 | 3,561 |
+| Strategy | 执行方式 | Overall | Clean | Randomized | 请求次数 | 前向中位数 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Fixed50 | 同步执行 50 步 | 63.6% | 107/125 | 52/125 | 1,725 | 0.705 s |
+| Fixed30 | 同步执行 30 步 | 59.6% | 103/125 | 46/125 | 3,024 | 0.695 s |
+| **Fixed20** | 同步执行 20 步 | **66.8%** | 110/125 | 57/125 | 4,073 | 0.485 s |
+| AutoHorizon | 按动作注意力选择执行前缀 | 62.0% | 106/125 | 49/125 | 3,483 | 0.555 s |
+| Async25 | 执行旧动作时异步生成下一块 | 65.2% | 110/125 | 53/125 | 3,336 | 0.695 s |
+| RTC25 | 异步生成，并用未执行前缀引导 | 60.0% | 105/125 | 45/125 | 3,561 | 1.802 s |
 
-Fixed20 是当前批次最高分，但请求次数约为 Fixed50 的 2.36 倍。这里的请求次数增加换来了更高的反馈频率，不能直接称为纯推理加速。AutoHorizon 和 RTC 的结果只代表当前 LingBot 适配、延迟和仿真接口下的表现，不能直接等同于原论文在其他模型或平台上的复现结果。
+前向耗时来自各策略实际模型请求，观察分布随执行轨迹变化，不能当作相同输入下的算子速度对照，也不等于端到端任务时长。原始统计见 [inference_comparison.csv](results/inference_comparison.csv)。
+
+**反馈频率与成本。** Fixed20 在当前批次最高，比 Fixed50 多成功 8 回合，请求约为 2.36 倍；Fixed30 反而下降，执行窗口与成功率并非单调关系。这里的改善伴随更多模型调用。
+
+**RTC 的结果与计算开销。** RTC25 为 150/250，低于 Fixed50 的 159/250，前向中位数约为其 2.56 倍。guided RTC 包含动作前缀约束与 VJP 计算，增加了采样开销。当前实验尚未分别隔离计算延迟、动作交接和前缀参数的影响，因此只能确认本配置没有取得更高成功率，不能确定某一个因素就是失败原因，也不能外推为 RTC 在其他模型或平台上无效。
 
 ## RPent Agent Integration
 
-### Agent 与 VLA 的职责
+### 规划、工具与 VLA 的分工
 
-```text
-Official RPent Agent
-  ├─ 读取任务目标与官方 memory
-  ├─ 规划阶段和选择工具
-  ├─ 根据环境反馈继续或重新规划
-  └─ 调用 VLA 生成局部动作序列
-          │
-          ▼
-RoboTwin
-  └─ 执行动作并返回观测、状态和 eval_success
-```
+基于上游 RPent 框架，使用 **gpt-6.1-sol / Medium** 规划与发布的任务记忆。Agent 读取图像与工具反馈，选择 VLA 或解析动作工具，再根据执行结果继续决策。VLA 保留 B29000 权重，根据三相机、机器人状态和**原始任务语言**生成 qpos14 动作；Agent 提供给 VLA 工具的临时子目标不替换该语言输入。
 
-Agent 不替换 VLA 权重，也不直接生成关节动作。它负责高层任务组织、工具调用和反馈闭环；VLA 负责根据观测和局部目标生成动作。
+RPent 记忆提供任务经验和工具使用参考，在规划上下文中使用。它与 VLA checkpoint 分开管理，不写入模型参数；更换底层 VLA 后仍需验证这些经验的适用性。
 
-### 集成边界
+### 接口与执行链路
 
-本项目保留官方 RPent 的规划器、工具 schema、提示词和 memory，只完成 B29000 的 qpos14 VLA 接口适配，以及模型服务与仿真环境之间的闭环接入。memory 是任务经验和工具使用参考，不是写入 VLA 参数的训练结果。
+| 接入点 | 实现内容 | 代码入口 |
+| --- | --- | --- |
+| 观测与动作 | 三相机映射、qpos14 状态/动作布局、50×14 输出校验 | [rpent_qpos14_adapter.py](src/rpent_qpos14_adapter.py) |
+| 模型服务 | endpoint 元数据、会话 reset、checkpoint/协议身份核验 | [b29000_vla_client.py](src/b29000_vla_client.py) |
+| 请求隔离 | 显式 noise seed、请求序号、响应匹配，拒绝重复或跨回合响应 | [checkpoint_shared_rpc.py](src/checkpoint_shared_rpc.py) |
+| 评测记录 | 动作预算、原生成功判定、初始化故障与策略失败区分、结果续接 | [评测协议](docs/experiment-protocol.md) |
 
-### Agent 结果
+规划器、工具 schema、提示词和记忆遵循 RPent 上游实现；适配工作集中在 VLA 合同、传输和闭环接入。图像与动作服务通过独立运行环境连接。
 
-以下结果均使用 B29000 作为底层 VLA：
+### 多任务结果
 
 | 条件 | Clean | Randomized | Overall |
 | --- | ---: | ---: | ---: |
-| 纯 VLA | 107/125 · 85.6% | 52/125 · 41.6% | 159/250 · 63.6% |
-| 官方 RPent Agent | 107/125 · 85.6% | 55/125 · 44.0% | 162/250 · 64.8% |
+| 纯 VLA · B29000 | 107/125 · 85.6% | 52/125 · 41.6% | 159/250 · 63.6% |
+| RPent Agent＋B29000 | 107/125 · 85.6% | 55/125 · 44.0% | 162/250 · 64.8% |
 
-官方 Agent 的结果与纯 VLA 结果来自不同运行批次，环境版本、初态 RGB 和 seed 处理并非完全同源。因此这里展示的是工程闭环结果和任务级差异，不能写成严格的因果增益。
+250 回合验证了规划—工具—VLA—反馈的完整协作链路。Agent 与纯 VLA 的环境版本、初态和 seed 处理并非完全同源，这里的差值保留为系统评测结果，不作为严格因果提升。
 
-## 任务级结果
+## Task-Level Results & Limitations
 
-总体成功率不能说明哪些任务真正受益。热力图按任务保留有逐任务结果的四个 checkpoint 和官方 Agent，Agent 位于最后一列；C student 与 C teacher 的汇总结果保留在 checkpoint 表中。
+![Per-task success rate across checkpoints and RPent Agent](assets/figures/per-task-checkpoint-heatmap.svg)
 
-![Per-task success rate across checkpoints and the official Agent](assets/figures/per-task-checkpoint-heatmap.svg)
+热力图保留四份 checkpoint 与 Agent 的逐任务结果；C student / teacher 的汇总见 checkpoint 表。以下列出三类实际差异，每个单元为成功回合数 / 5：
 
-公开结果表：
+| 任务与设置 | SFT16000 | B29000 | RPent Agent | 观察 |
+| --- | ---: | ---: | ---: | --- |
+| `put_bottles_dustbin` · Clean | 2/5 | 5/5 | 4/5 | 后训练批次改善明显，Agent 未进一步提高 |
+| `place_a2b_left` · Randomized | 1/5 | 1/5 | 4/5 | Agent 系统批次更好，具体机制需结合执行记录验证 |
+| `lift_pot` · Randomized | 0/5 | 0/5 | 0/5 | 在这些场景中，后训练与高层规划均未解决任务 |
 
-- [`results/checkpoint_summary.csv`](results/checkpoint_summary.csv)：checkpoint 的 clean/randomized 汇总。
-- [`results/per_task_checkpoint.csv`](results/per_task_checkpoint.csv)：25 个任务 × 4 个 checkpoint 与官方 Agent 的逐任务结果。
-- [`results/inference_comparison.csv`](results/inference_comparison.csv)：推理策略、请求次数和模型前向时间。
-- [`results/training_full.csv`](results/training_full.csv)：从 SFT 到 B29000 的训练曲线采样，保留日志缺口。
-- [`scripts/plot_showcase.py`](scripts/plot_showcase.py)：从公开结果表重绘图表。
+任务级差异提示了后续诊断方向，但每个设置仅 5 回合，不能仅凭成功率判断是感知、规划、接触还是动作能力导致失败。跨批次初态差异也限制 Agent 比较。上述百分点差值均为当前实验的描述性结果，未经过多批次重复或显著性检验。
 
-## 主要发现与边界
+## Code & Results
 
-1. **后训练**：B29000 是当前候选中最好的底层 checkpoint，但 randomized 与 clean 之间仍有明显差距。
-2. **推理**：Fixed20 在当前测试中最高，但以更多模型请求换取更高反馈频率；执行窗口与成功率不是单调关系。
-3. **Agent**：官方 RPent 已形成规划—工具—VLA—反馈闭环，但当前结果不足以证明它在同环境同初态下稳定优于纯 VLA。
-4. **研究边界**：这些结果用于比较本项目中的训练路线、推理设置和工程集成，不把不同服务器、不同环境批次的结果拼成单一因果结论。
-
-## Code Map
-
-| 路径 | 用途 |
+| 入口 | 阅读内容 |
 | --- | --- |
-| `src/` | VLA 客户端、动作块执行、推理策略、Agent 和证据记录 |
-| `patches/` | 与上游实现之间的最小差异 |
-| `results/` | 保留分母和任务维度的公开结果表 |
-| `assets/figures/` | 训练曲线、成功率、推理折中、系统架构和任务热力图 |
-| `tests/` | 接口、动作执行、结果账本和推理策略回归测试 |
-| `docs/` | 评测协议、结果说明和证据边界 |
+| [rpent_qpos14_adapter.py](src/rpent_qpos14_adapter.py) / [b29000_vla_client.py](src/b29000_vla_client.py) | 当前 RPent 接入的观测、动作与服务协议 |
+| [chunk_executor.py](src/chunk_executor.py) | 固定窗口、异步队列和旧动作交接 |
+| [autohorizon.py](src/autohorizon.py) | 论文自适应执行前缀计算 |
+| [rtc_core.py](src/rtc_core.py) / [rtc_lingbot.py](src/rtc_lingbot.py) | 前缀权重、VJP 引导和 LingBot 采样适配 |
+| [v2_qpos14_server.py](src/v2_qpos14_server.py) | qpos14 推理服务入口 |
+| [plot_showcase.py](scripts/plot_showcase.py) | 训练曲线、成功率与任务热力图 |
+| [tests/](tests/) / [ARCHITECTURE.md](ARCHITECTURE.md) | 接口、执行与结果记录的回归检查及模块说明 |
+
+- [checkpoint_summary.csv](results/checkpoint_summary.csv)：checkpoint 的 Clean / Randomized 汇总。
+- [per_task_checkpoint.csv](results/per_task_checkpoint.csv)：25 任务、四份 checkpoint 与 Agent 的逐任务结果。
+- [inference_comparison.csv](results/inference_comparison.csv)：六种推理策略的成功率、请求次数与前向耗时。
+- [training_full.csv](results/training_full.csv)：从 SFT 到 B29000 的已归档训练曲线采样。
 
 ## References
 
-- LingBot-VLA 2.0：<https://github.com/Robbyant/lingbot-vla-v2>
-- RoboTwin：<https://github.com/RoboTwin-Platform/RoboTwin>
-- RPent：<https://github.com/RLinf/RPent>
-- AutoHorizon：<https://github.com/hatchetProject/AutoHorizon>
-- Real-Time Chunking：<https://github.com/Physical-Intelligence/real-time-chunking-kinetix>
-- Kassis et al., *Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents*, arXiv:2609.00065 (2026)：<https://arxiv.org/abs/2609.00065>
+- [LingBot-VLA 2.0](https://github.com/Robbyant/lingbot-vla-v2)
+- [RoboTwin](https://github.com/RoboTwin-Platform/RoboTwin)
+- [RPent](https://github.com/RLinf/RPent)
+- [AutoHorizon](https://github.com/hatchetProject/AutoHorizon)
+- [Real-Time Chunking](https://github.com/Physical-Intelligence/real-time-chunking-kinetix)
+- Kassis et al., *Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents*, [arXiv:2609.00065](https://arxiv.org/abs/2609.00065) (2026)
 
-第三方代码、模型、数据和许可证说明见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+第三方说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

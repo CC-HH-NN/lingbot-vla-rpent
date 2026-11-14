@@ -7,13 +7,14 @@
 - 可阅读的 VLA 推理、动作块、AutoHorizon、RTC、Agent 和评测账本代码。
 - 与上游实现之间的最小补丁和架构说明。
 - 不含服务器路径、凭据和运行时信息的结果摘要：`results/`。
-- 不依赖额外绘图库的 SVG 展示图：`assets/figures/`。
+- 由 Matplotlib 绘制的 SVG/PNG 结果图：`assets/figures/`。
+- 8 个未经处理的 Demo 原始 MP4、已有首帧缩略图及场景/SHA 清单：`assets/demos/`。
 - 示例配置、测试、实验协议和第三方声明。
 
 ## Excluded
 
 - 模型权重、训练数据、仿真器和机器人资产。
-- 集群环境、Slurm 作业、运行日志、视频、NPZ、缓存和虚拟环境。
+- 集群环境、Slurm 作业、运行日志、NPZ、缓存和虚拟环境。
 - API key、代理/中继地址、内部服务器路径和 `site.env`。
 - 可以直接还原内部运行目录的脚本或凭据。
 
